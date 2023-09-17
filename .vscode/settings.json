@@ -1,0 +1,12 @@
+// Workspace settings
+{
+    "files.exclude": {
+        "shaders/*.vert": true,
+        "shaders/*.frag": true,
+        "target": true,
+        ".gitignore": true,
+        "Cargo.lock": true,
+        ".vscode": true,
+    },
+    "rust-analyzer.showUnlinkedFileNotification": false
+}
