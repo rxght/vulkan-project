@@ -21,7 +21,7 @@ impl<T> Bindable for VertexBuffer<T>
     }
     
     fn bind(&self, gfx: &crate::app::graphics::Graphics) {
-        
+        todo!();
     }
 }
 
@@ -55,6 +55,9 @@ pub struct IndexBuffer
 impl Bindable for IndexBuffer
 {
     fn bind_to_pipeline(&self, builder: &mut crate::app::graphics::pipeline::PipelineBuilder) {}
+    fn bind(&self, gfx: &crate::app::graphics::Graphics) {
+        todo!();
+    }
 }
 
 #[derive(BufferContents)]

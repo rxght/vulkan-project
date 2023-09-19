@@ -205,14 +205,10 @@ impl Graphics
     pub fn get_shared_data_map(&self) -> &HashMap<u32, Weak<DrawableSharedPart>> { &self.shared_data_map }
     pub fn get_swapchain_format(&self) -> Format {self.swapchain.image_format()}
 
-    pub fn test_draw(&mut self)
-    {
-
-    }
-
     pub fn draw_frame(&mut self)
     {
-
+        // nästa steg
+        todo!();
     }
 
     pub fn register_drawable(&mut self, drawable_entry: &mut DrawableEntry)
@@ -238,7 +234,8 @@ impl Graphics
 
     pub fn recreate_swapchain(&mut self)
     {
-
+        // också viktig
+        todo!();
     }
 
     pub fn create_shader_module(&self, path: &str) -> Arc<ShaderModule>
