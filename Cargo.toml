@@ -13,6 +13,7 @@ winit = "0.28"
 vulkano-win = "0.33"
 vulkano-util = "0.33"
 
+bytemuck = "1.14.0"
 smallvec = "1.0"
 cgmath = "0.18"
 glium = "0.32.1"

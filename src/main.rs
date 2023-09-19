@@ -1,3 +1,7 @@
+use app::App;
+use winit::{event::{Event, WindowEvent}, event_loop::ControlFlow};
+
+
 #[allow(unused_variables)]
 #[allow(dead_code)]
 #[allow(unused_imports)]
@@ -7,7 +11,28 @@ mod app;
 
 fn main()
 {
-    let app = app::App::new();
-
-    app.run();
+    let (mut app, event_loop) = App::new();
+    event_loop.run(move 
+        |event, _window_target, control_flow|
+    {
+        match event
+        {
+            Event::WindowEvent {
+                event: WindowEvent::CloseRequested,
+                ..
+            } => {
+                *control_flow = ControlFlow::Exit;
+            },
+            Event::WindowEvent { 
+                event: WindowEvent::ReceivedCharacter(_),
+                ..
+            } => {
+                app.resize_callback();
+            },
+            Event::RedrawEventsCleared => {
+                app.run();
+            }
+            _ => (),
+        }
+    });
 }

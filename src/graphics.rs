@@ -1,11 +1,16 @@
-pub mod drawable;
 
+pub mod drawable;
+pub mod bindable;
+pub mod pipeline;
+
+use std::collections::{HashMap, HashSet};
 use std::{cmp::min, alloc::GlobalAlloc};
-use std::sync::Arc;
-use vulkano::render_pass::FramebufferCreateInfo;
-use vulkano::shader::{ShaderModule, ShaderStage, ShaderCreationError};
+use std::sync::{Arc, Weak};
 use vulkano::{
-    memory::allocator::{GenericMemoryAllocator, FreeListAllocator},
+    memory::allocator::{
+        GenericMemoryAllocator, FreeListAllocator,
+        AllocationCreateInfo, MemoryUsage, StandardMemoryAllocator
+    },
     buffer::{Buffer, BufferContents, BufferCreateInfo, BufferUsage},
     command_buffer::{
         allocator::StandardCommandBufferAllocator, AutoCommandBufferBuilder, CommandBufferUsage,
@@ -17,12 +22,14 @@ use vulkano::{
         QueueCreateInfo, QueueFlags, Queue
     },
     image::{
-        view::ImageView, view::ImageViewCreateInfo, ImageAccess, ImageUsage, SwapchainImage,
-        ImageSubresourceLayers, ImageSubresourceRange, ImageAspect, ImageAspects, SampleCount, ImageLayout
+        view::{ImageView, ImageViewCreateInfo}, ImageAccess, ImageUsage, SwapchainImage,
+        ImageSubresourceLayers, ImageSubresourceRange, ImageAspect, ImageAspects,
+        SampleCount, ImageLayout
     },
-    instance::{Instance, InstanceCreateInfo, InstanceExtensions},
-    instance::debug::{ValidationFeatureEnable, DebugUtilsMessenger, DebugUtilsMessengerCreateInfo},
-    memory::allocator::{AllocationCreateInfo, MemoryUsage, StandardMemoryAllocator},
+    instance::{
+        debug::{ValidationFeatureEnable, DebugUtilsMessenger, DebugUtilsMessengerCreateInfo},
+        Instance, InstanceCreateInfo, InstanceExtensions
+    },
     pipeline::{
         graphics::{
             input_assembly::InputAssemblyState,
@@ -34,7 +41,7 @@ use vulkano::{
     },
     render_pass::{
         LoadOp, StoreOp, RenderPass, RenderPassCreateInfo, AttachmentDescription,
-        SubpassDescription, AttachmentReference, Framebuffer
+        SubpassDescription, AttachmentReference, Framebuffer, FramebufferCreateInfo
     },
     swapchain::{
         acquire_next_image, AcquireError, Swapchain, SwapchainCreateInfo, SwapchainCreationError,
@@ -42,7 +49,8 @@ use vulkano::{
     },
     sync::{self, FlushError, GpuFuture, Sharing},
     sampler::ComponentMapping,
-    Version, VulkanLibrary, format::Format
+    Version, VulkanLibrary, format::Format,
+    shader::{ShaderModule, ShaderStage, ShaderCreationError, spirv::ImageFormat}
 };
 use vulkano_win::VkSurfaceBuild;
 use winit::{
@@ -51,6 +59,8 @@ use winit::{
     event_loop::{ControlFlow, EventLoop},
     window::{Window, WindowBuilder},
 };
+
+use self::drawable::{DrawableSharedPart, GenericDrawable, Drawable, DrawableEntry};
 
 // If true MAILBOX will always be used if available.
 // If false MAILBOX will be used only if FIFO is not available
@@ -105,21 +115,28 @@ pub struct Graphics
     library: Arc<VulkanLibrary>,
     instance: Arc<Instance>,
     debug_messenger: DebugUtilsMessenger,
-    event_loop: EventLoop<()>,
     surface: Arc<Surface>,
     physical_device: Arc<PhysicalDevice>,
     device: Arc<Device>,
     queues: Queues,
+    allocator: StandardMemoryAllocator,
+    cmd_allocator: StandardCommandBufferAllocator,
+
     swapchain: Arc<Swapchain>,
     swapchain_images: Vec<Arc<SwapchainImage>>,
-    allocator: StandardMemoryAllocator,
     main_render_pass: Arc<RenderPass>,
     framebuffers: Vec<Arc<Framebuffer>>,
+
+    // drawable stuff
+    shared_data_map: HashMap<u32, Weak<DrawableSharedPart>>,
+    registered_drawables: Vec<Weak<GenericDrawable>>,
+
+    futures: Vec<Box<dyn GpuFuture>>,
 }
 
 impl Graphics
 {
-    pub fn new() -> Graphics
+    pub fn new() -> (Graphics, EventLoop<()>)
     {
         let library = VulkanLibrary::new().expect("Vulkan library is not installed.");
         
@@ -138,11 +155,14 @@ impl Graphics
         let (device, queues) =
             create_logical_device(physical_device.clone(), surface.clone());
         
-        let (swapchain, swapchain_images) =
-            create_swapchain(device.clone(), surface.clone());
-        
         let memory_allocator =
             StandardMemoryAllocator::new_default(device.clone());
+
+        let cmd_allocator =
+            StandardCommandBufferAllocator::new(device.clone(), Default::default());
+
+        let (swapchain, swapchain_images) =
+            create_swapchain(device.clone(), surface.clone());
 
         let swapchain_image_views =
             create_image_views(&swapchain_images, swapchain.clone());
@@ -153,23 +173,85 @@ impl Graphics
         let framebuffers =
             create_framebuffers(&swapchain_image_views, main_render_pass.clone());
         
-        Graphics {
-            library: library,
-            instance: instance,
-            debug_messenger: debug_messenger,
-            event_loop: event_loop,
-            surface: surface,
-            physical_device: physical_device,
-            device: device,
-            queues: queues,
-            swapchain: swapchain,
-            swapchain_images: swapchain_images,
-            allocator: memory_allocator,
-            main_render_pass: main_render_pass,
-            framebuffers: framebuffers,
+
+        (
+            Graphics {
+                library: library,
+                instance: instance,
+                debug_messenger: debug_messenger,
+                surface: surface,
+                physical_device: physical_device,
+                device: device,
+                queues: queues,
+                allocator: memory_allocator,
+                cmd_allocator: cmd_allocator,
+                swapchain: swapchain,
+                swapchain_images: swapchain_images,
+                main_render_pass: main_render_pass,
+                framebuffers: framebuffers,
+
+                shared_data_map: HashMap::new(),
+                registered_drawables: Vec::new(),
+
+                futures: Vec::new()
+            },
+            event_loop
+        )
+    }
+
+    pub fn get_device(&self) -> Arc<Device> { self.device.clone() }
+    pub fn get_main_render_pass(&self) -> Arc<RenderPass> { self.main_render_pass.clone() }
+    pub fn get_allocator(&self) -> &StandardMemoryAllocator { &self.allocator }
+    pub fn get_shared_data_map(&self) -> &HashMap<u32, Weak<DrawableSharedPart>> { &self.shared_data_map }
+    pub fn get_swapchain_format(&self) -> Format {self.swapchain.image_format()}
+
+    pub fn test_draw(&mut self)
+    {
+
+    }
+
+    pub fn draw_frame(&mut self)
+    {
+
+    }
+
+    pub fn register_drawable(&mut self, drawable_entry: &mut DrawableEntry)
+    {
+        drawable_entry.registered_uid = Some(self.registered_drawables.len() as u32);
+        self.registered_drawables.push(drawable_entry.get_weak());
+    }
+
+    pub fn unregister_drawable(&mut self, drawable_entry: &mut DrawableEntry)
+    {
+        match drawable_entry.registered_uid
+        {
+            Some(idx) => {
+                match self.registered_drawables.get_mut(idx as usize)
+                {
+                    Some(weak) => *weak = Weak::new(),
+                    None => _ = dbg!("[WARN] Tried to unregister an entry that was out of bounds."),
+                }
+            }
+            None => _ = dbg!("[WARN] Tried to unregister an entry that wasn't registered."),
         }
     }
 
+    pub fn recreate_swapchain(&mut self)
+    {
+
+    }
+
+    pub fn create_shader_module(&self, path: &str) -> Arc<ShaderModule>
+    {
+        let bytes =
+            std::fs::read(path).expect("Couldn't find the file specified");
+        
+        unsafe
+        {
+            ShaderModule::from_bytes(self.device.clone(), bytes.as_ref())
+                .expect("Failed to create shader module!")
+        }
+    }
 }
 
 fn create_instance(library: Arc<VulkanLibrary>) -> Arc<Instance>
@@ -483,22 +565,4 @@ fn create_framebuffers(image_views: &Vec<Arc<ImageView<SwapchainImage>>>, render
         };
         Framebuffer::new(render_pass.clone(), create_info).unwrap()
     }).collect()
-}
-
-pub fn create_shader_module(device: Arc<Device>) -> Arc<ShaderModule>
-{
-    let shader_path = "shaders/first.vert";
-    let bytes =
-        std::fs::read(shader_path).expect("Couldn't find the file specified");
-    
-    unsafe
-    {
-        ShaderModule::from_bytes(device.clone(), bytes.as_ref())
-            .expect("Failed to create shader module!")
-    }
-}
-
-pub fn test_draw()
-{
-    
 }
