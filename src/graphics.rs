@@ -415,7 +415,8 @@ fn create_window(instance: Arc<Instance>) -> (EventLoop<()>, Arc<Surface>)
     let event_loop = EventLoop::new();
     let surface = WindowBuilder::new()
         .with_inner_size(LogicalSize::new(600, 400))
-        //.with_resizable(false)
+        .with_resizable(true)
+        .with_title("Batako")
         .build_vk_surface(&event_loop, instance.clone())
         .expect("Failed to create window surface!");
     (event_loop, surface)
