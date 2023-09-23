@@ -110,7 +110,7 @@ pub struct Graphics
     //library: Arc<VulkanLibrary>,
     //instance: Arc<Instance>,
     //debug_messenger: Option<DebugUtilsMessenger>,
-    //surface: Arc<Surface>,
+    surface: Arc<Surface>,
     //physical_device: Arc<PhysicalDevice>,
     device: Arc<Device>,
     queues: Queues,
@@ -178,7 +178,7 @@ impl Graphics
                 //library: library,
                 //instance: instance,
                 //debug_messenger: None,
-                //surface: surface,
+                surface: surface,
                 //physical_device: physical_device,
                 device: device,
                 queues: queues,
@@ -324,8 +324,41 @@ impl Graphics
 
     pub fn recreate_swapchain(&mut self)
     {
-        // TODO
-        println!("[WARN] recreate_swapchain() has not yet been implemented!");
+        let capabilities =
+            self.device.physical_device().surface_capabilities(self.surface.as_ref(), Default::default()).unwrap();
+
+        let extent: [u32; 2] = match capabilities.current_extent
+        {
+            Some(current) => current,
+            None => {
+                let window: &Window = self.surface.object().unwrap().downcast_ref().unwrap();
+                let framebuffer_extent = window.inner_size();
+                let width = framebuffer_extent.width;
+                let height = framebuffer_extent.height;
+                [
+                    width.clamp(capabilities.min_image_extent[0], capabilities.max_image_extent[0]),
+                    height.clamp(capabilities.min_image_extent[1], capabilities.max_image_extent[1]),
+                ]
+            }
+        };
+
+        let create_info = SwapchainCreateInfo
+        {
+            image_extent: extent,
+            ..self.swapchain.create_info()
+        };
+    
+        let (swapchain, swapchain_images) =
+            self.swapchain.recreate(create_info).unwrap();
+        
+        let image_views =
+            create_image_views(&swapchain_images, swapchain.clone());
+
+        let framebuffers =
+            create_framebuffers(&image_views, self.main_render_pass.clone());
+
+        self.swapchain = swapchain;
+        self.framebuffers = framebuffers;
     }
 
     pub fn create_shader_module(&self, path: &str) -> Arc<ShaderModule>
@@ -382,7 +415,7 @@ fn create_window(instance: Arc<Instance>) -> (EventLoop<()>, Arc<Surface>)
     let event_loop = EventLoop::new();
     let surface = WindowBuilder::new()
         .with_inner_size(LogicalSize::new(600, 400))
-        .with_resizable(false)
+        //.with_resizable(false)
         .build_vk_surface(&event_loop, instance.clone())
         .expect("Failed to create window surface!");
     (event_loop, surface)

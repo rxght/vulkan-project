@@ -17,9 +17,9 @@ pub fn new(gfx: &mut Graphics, create_registered: bool) -> DrawableEntry
             pub col: [f32; 3],
         }
         let vertices: Vec<Vertex> = vec![
-            Vertex{pos: [-0.5,  0.5], col: [1.0, 0.0, 0.0]},
-            Vertex{pos: [ 0.0, -0.5], col: [0.0, 1.0, 0.0]},
-            Vertex{pos: [ 0.5,  0.5], col: [0.0, 0.0, 1.0]}
+            Vertex{pos: [-0.5,  0.5], col: [1.0, 1.0, 0.0]},
+            Vertex{pos: [ 0.0, -0.5], col: [0.0, 1.0, 1.0]},
+            Vertex{pos: [ 0.5,  0.5], col: [1.0, 0.0, 1.0]}
         ];
         let indices: Vec<u32> = vec![
             0, 1, 2
