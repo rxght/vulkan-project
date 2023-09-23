@@ -3,18 +3,16 @@ pub mod drawable;
 pub mod bindable;
 pub mod pipeline;
 
-use std::collections::{HashMap, HashSet};
-use std::{cmp::min, alloc::GlobalAlloc};
+use std::collections::HashMap;
+use std::cmp::min;
 use std::sync::{Arc, Weak};
+use vulkano::command_buffer::{PrimaryAutoCommandBuffer, RenderPassBeginInfo};
+use vulkano::command_buffer::allocator::StandardCommandBufferAlloc;
+use vulkano::format::ClearValue;
 use vulkano::{
-    memory::allocator::{
-        GenericMemoryAllocator, FreeListAllocator,
-        AllocationCreateInfo, MemoryUsage, StandardMemoryAllocator
-    },
-    buffer::{Buffer, BufferContents, BufferCreateInfo, BufferUsage},
+    memory::allocator::StandardMemoryAllocator,
     command_buffer::{
-        allocator::StandardCommandBufferAllocator, AutoCommandBufferBuilder, CommandBufferUsage,
-        RenderingAttachmentInfo, RenderingInfo,
+        allocator::StandardCommandBufferAllocator, AutoCommandBufferBuilder, CommandBufferUsage
     },
     device::{
         physical::{PhysicalDeviceType, PhysicalDevice},
@@ -22,45 +20,37 @@ use vulkano::{
         QueueCreateInfo, QueueFlags, Queue
     },
     image::{
-        view::{ImageView, ImageViewCreateInfo}, ImageAccess, ImageUsage, SwapchainImage,
-        ImageSubresourceLayers, ImageSubresourceRange, ImageAspect, ImageAspects,
-        SampleCount, ImageLayout
+        view::{ImageView, ImageViewCreateInfo}, ImageUsage, SwapchainImage,
+        ImageSubresourceRange, ImageAspects, SampleCount, ImageLayout
     },
     instance::{
         debug::{ValidationFeatureEnable, DebugUtilsMessenger, DebugUtilsMessengerCreateInfo},
         Instance, InstanceCreateInfo, InstanceExtensions
     },
-    pipeline::{
-        graphics::{
-            input_assembly::InputAssemblyState,
-            render_pass::PipelineRenderingCreateInfo,
-            vertex_input::Vertex,
-            viewport::{Viewport, ViewportState},
-        },
-        GraphicsPipeline,
-    },
+    pipeline::graphics::viewport::Viewport,
     render_pass::{
         LoadOp, StoreOp, RenderPass, RenderPassCreateInfo, AttachmentDescription,
         SubpassDescription, AttachmentReference, Framebuffer, FramebufferCreateInfo
     },
     swapchain::{
-        acquire_next_image, AcquireError, Swapchain, SwapchainCreateInfo, SwapchainCreationError,
-        SwapchainPresentInfo, Surface, ColorSpace, SurfaceTransform, CompositeAlpha
+        acquire_next_image, Swapchain, SwapchainCreateInfo,
+        SwapchainPresentInfo, Surface, ColorSpace, CompositeAlpha
     },
     sync::{self, FlushError, GpuFuture, Sharing},
     sampler::ComponentMapping,
     Version, VulkanLibrary, format::Format,
-    shader::{ShaderModule, ShaderStage, ShaderCreationError, spirv::ImageFormat}
+    shader::ShaderModule
 };
 use vulkano_win::VkSurfaceBuild;
 use winit::{
     dpi::LogicalSize,
-    event::{Event, WindowEvent},
-    event_loop::{ControlFlow, EventLoop},
+    event_loop::EventLoop,
     window::{Window, WindowBuilder},
 };
 
 use self::drawable::{DrawableSharedPart, GenericDrawable, Drawable, DrawableEntry};
+
+const IN_FLIGHT_COUNT: usize = 3;
 
 // If true MAILBOX will always be used if available.
 // If false MAILBOX will be used only if FIFO is not available
@@ -75,6 +65,11 @@ const INSTANCE_EXTENSIONS: InstanceExtensions = InstanceExtensions {
     ext_validation_features: true,
     ext_debug_utils: true,
     ..InstanceExtensions::empty()
+};
+
+const ENABLED_FEATURES: Features = Features {
+    dynamic_rendering: true,
+    ..Features::empty()
 };
 
 const ENABLED_VALIDATION_FEATURES: [ValidationFeatureEnable; 1] = [
@@ -114,7 +109,7 @@ pub struct Graphics
 {
     library: Arc<VulkanLibrary>,
     instance: Arc<Instance>,
-    debug_messenger: DebugUtilsMessenger,
+    debug_messenger: Option<DebugUtilsMessenger>,
     surface: Arc<Surface>,
     physical_device: Arc<PhysicalDevice>,
     device: Arc<Device>,
@@ -131,7 +126,10 @@ pub struct Graphics
     shared_data_map: HashMap<u32, Weak<DrawableSharedPart>>,
     registered_drawables: Vec<Weak<GenericDrawable>>,
 
-    futures: Vec<Box<dyn GpuFuture>>,
+    main_command_buffer: Option<PrimaryAutoCommandBuffer<StandardCommandBufferAlloc>>,
+    futures: Vec<Option<Box<dyn GpuFuture>>>,
+    inflight_index: u32,
+    framebuffer_index: u32,
 }
 
 impl Graphics
@@ -172,13 +170,15 @@ impl Graphics
 
         let framebuffers =
             create_framebuffers(&swapchain_image_views, main_render_pass.clone());
-        
+
+        let mut futures = Vec::with_capacity(IN_FLIGHT_COUNT);
+        futures.resize_with(IN_FLIGHT_COUNT, || Some(sync::now(device.clone()).boxed()));
 
         (
             Graphics {
                 library: library,
                 instance: instance,
-                debug_messenger: debug_messenger,
+                debug_messenger: None,
                 surface: surface,
                 physical_device: physical_device,
                 device: device,
@@ -193,7 +193,10 @@ impl Graphics
                 shared_data_map: HashMap::new(),
                 registered_drawables: Vec::new(),
 
-                futures: Vec::new()
+                main_command_buffer: None,
+                futures: futures,
+                inflight_index: 0,
+                framebuffer_index: 0,
             },
             event_loop
         )
@@ -205,16 +208,108 @@ impl Graphics
     pub fn get_shared_data_map(&self) -> &HashMap<u32, Weak<DrawableSharedPart>> { &self.shared_data_map }
     pub fn get_swapchain_format(&self) -> Format {self.swapchain.image_format()}
 
+    pub fn recreate_command_buffer(&mut self)
+    {
+
+        let mut builder =
+            AutoCommandBufferBuilder::primary(
+                &self.cmd_allocator,
+                self.queues.graphics_queue.as_ref().unwrap().queue_family_index(),
+                CommandBufferUsage::OneTimeSubmit
+            ).unwrap();
+        
+        let viewport = Viewport {
+            origin: [0.0, 0.0],
+            dimensions: self.swapchain.image_extent().map(|int| int as f32),
+            depth_range: 0.0..1.0,
+        };
+
+        builder
+            .begin_render_pass(
+                RenderPassBeginInfo{
+                    render_pass: self.main_render_pass.clone(),
+                    clear_values: vec![Some(ClearValue::Float([0.0, 0.0, 0.0, 1.0]))],
+                    ..RenderPassBeginInfo::framebuffer(self.framebuffers[self.framebuffer_index as usize].clone())
+                },
+                vulkano::command_buffer::SubpassContents::Inline
+            ).unwrap()
+            .set_viewport(0, [viewport.clone()]);
+        
+        for drawable in 
+            self.registered_drawables.iter().filter_map(|p| p.upgrade())
+        {
+            for bindable in drawable.get_bindables()
+            {
+                bindable.bind(&self, &mut builder);
+            }
+            for bindable in drawable.get_shared_bindables()
+            {
+                bindable.bind(&self, &mut builder);
+            }
+            builder.bind_pipeline_graphics(drawable.get_pipeline());
+            builder.draw_indexed(drawable.get_index_count(), 1, 0, 0, 0).unwrap();
+        }
+
+        builder.end_render_pass().unwrap();
+        self.main_command_buffer = Some(builder.build().unwrap());
+    }
+
     pub fn draw_frame(&mut self)
     {
-        // nästa steg
-        todo!();
+        self.futures[self.inflight_index as usize].as_mut().unwrap().cleanup_finished();
+
+        let (image_index, suboptimal, acquire_future) =
+            acquire_next_image(self.swapchain.clone(), None).unwrap();
+        
+        self.framebuffer_index = image_index;
+
+        match self.main_command_buffer.as_ref() {
+            None => self.recreate_command_buffer(),
+            _ => {}
+        };
+
+        let new_future =
+            self.futures[self.inflight_index as usize]
+            .take()
+            .unwrap()
+            .join(acquire_future)
+            .then_execute(self.queues.graphics_queue.clone().unwrap(), self.main_command_buffer.take().unwrap())
+            .unwrap()
+            .then_swapchain_present(self.queues.graphics_queue.clone().unwrap(), 
+                SwapchainPresentInfo::swapchain_image_index(self.swapchain.clone(), image_index)
+            )
+            .then_signal_fence_and_flush();
+        
+        match new_future
+        {
+            Ok(future) => {
+                self.futures[self.inflight_index as usize] = Some(future.boxed());
+            },
+            Err(FlushError::OutOfDate) => {
+                self.recreate_swapchain();
+                self.futures[self.inflight_index as usize] = Some(sync::now(self.device.clone()).boxed());
+            },
+            Err(e) => {
+                println!("failed to flush future: {e}");
+                self.futures[self.inflight_index as usize] = Some(sync::now(self.device.clone()).boxed());
+            }
+        };
+
+        self.inflight_index = (self.inflight_index + 1) % IN_FLIGHT_COUNT as u32;
+    }
+
+    pub fn invalidate_command_buffer(&mut self)
+    {
+        self.main_command_buffer = None;
     }
 
     pub fn register_drawable(&mut self, drawable_entry: &mut DrawableEntry)
     {
+        if drawable_entry.registered_uid.is_some() { return; }
+
         drawable_entry.registered_uid = Some(self.registered_drawables.len() as u32);
         self.registered_drawables.push(drawable_entry.get_weak());
+    
     }
 
     pub fn unregister_drawable(&mut self, drawable_entry: &mut DrawableEntry)
@@ -234,8 +329,8 @@ impl Graphics
 
     pub fn recreate_swapchain(&mut self)
     {
-        // också viktig
-        todo!();
+        // TODO
+        println!("[WARN] recreate_swapchain() has not yet been implemented!");
     }
 
     pub fn create_shader_module(&self, path: &str) -> Arc<ShaderModule>
@@ -279,7 +374,7 @@ fn create_debug_messenger(instance: Arc<Instance>) -> DebugUtilsMessenger
         DebugUtilsMessenger::new(
             instance,
             DebugUtilsMessengerCreateInfo::user_callback(Arc::new(
-                |msg| {
+                |msg: &vulkano::instance::debug::Message<'_>| {
                     println!("DEBUG MESSENGER!!!! {}", msg.description);
                 }
             ))
@@ -291,7 +386,7 @@ fn create_window(instance: Arc<Instance>) -> (EventLoop<()>, Arc<Surface>)
 {
     let event_loop = EventLoop::new();
     let surface = WindowBuilder::new()
-        .with_inner_size(LogicalSize::new(900, 700))
+        .with_inner_size(LogicalSize::new(600, 400))
         .with_resizable(false)
         .build_vk_surface(&event_loop, instance.clone())
         .expect("Failed to create window surface!");
@@ -390,7 +485,7 @@ fn create_logical_device(physical_device: Arc<PhysicalDevice>, surface: Arc<Surf
 
     let create_info = DeviceCreateInfo {
         enabled_extensions: extensions,
-        enabled_features: Features::empty(),
+        enabled_features: ENABLED_FEATURES,
         queue_create_infos: index_set.iter().map( |p| QueueCreateInfo{
             queue_family_index: *p,
             ..Default::default()

@@ -1,5 +1,5 @@
 
-use std::{sync::{Arc, Weak}, collections::HashMap};
+use std::sync::{Arc, Weak};
 use vulkano::pipeline::GraphicsPipeline;
 
 use super::bindable::Bindable;
@@ -10,12 +10,14 @@ pub trait Drawable
     fn get_bindables(&self) -> &Vec<Arc<dyn Bindable>>;
     fn get_shared_bindables(&self) -> &Vec<Arc<dyn Bindable>>;
     fn get_pipeline(&self) -> Arc<GraphicsPipeline>;
+    fn get_index_count(&self) -> u32;
 }
 
 pub struct DrawableSharedPart
 {
     pub bindables: Vec<Arc<dyn Bindable>>,
     pub pipeline: Arc<GraphicsPipeline>,
+    pub index_count: u32,
 }
 
 pub struct GenericDrawable
@@ -73,16 +75,17 @@ impl GenericDrawable
                 registered_uid: None},
             None =>
             {
+                let mut index_count = 0;
                 let bindables = init_bindables();
                 let shared_bindables = init_shared_bindables();
 
                 let mut pipeline_builder = PipelineBuilder::new(gfx);
 
                 for bindable in &bindables {
-                    bindable.bind_to_pipeline(&mut pipeline_builder);
+                    bindable.bind_to_pipeline(&mut pipeline_builder, &mut index_count);
                 }
                 for bindable in &shared_bindables {
-                    bindable.bind_to_pipeline(&mut pipeline_builder);
+                    bindable.bind_to_pipeline(&mut pipeline_builder, &mut index_count);
                 }
                 
                 let pipeline = pipeline_builder.build(gfx.get_device());
@@ -91,6 +94,7 @@ impl GenericDrawable
                     entry: Arc::new(Self {
                         bindables: bindables,
                         shared_part: Arc::new(DrawableSharedPart {
+                            index_count: index_count,
                             bindables: shared_bindables,
                             pipeline: pipeline
                         })
@@ -107,4 +111,5 @@ impl Drawable for GenericDrawable
     fn get_bindables(&self) -> &Vec<Arc<dyn Bindable>> { &self.bindables }
     fn get_shared_bindables(&self) -> &Vec<Arc<dyn Bindable>> { &self.shared_part.bindables }
     fn get_pipeline(&self) -> Arc<GraphicsPipeline> { self.shared_part.pipeline.clone() }
+    fn get_index_count(&self) -> u32 { self.shared_part.index_count }
 }

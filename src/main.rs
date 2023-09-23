@@ -1,7 +1,6 @@
 use app::App;
 use winit::{event::{Event, WindowEvent}, event_loop::ControlFlow};
 
-
 #[allow(unused_variables)]
 #[allow(dead_code)]
 #[allow(unused_imports)]
@@ -24,7 +23,7 @@ fn main()
                 *control_flow = ControlFlow::Exit;
             },
             Event::WindowEvent { 
-                event: WindowEvent::ReceivedCharacter(_),
+                event: WindowEvent::Resized(_),
                 ..
             } => {
                 app.resize_callback();

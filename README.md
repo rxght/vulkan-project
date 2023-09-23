@@ -1,6 +1,6 @@
 # Vulkan Project
 
 > ### Todo:
-> 1. **draw_frame**() function
-> 2. Vertex- and IndexBuffer **bind**() functions
-> 3. **recreate_swapchain**() funtion
+> 1. implement the recreate_swapchain() funtion
+> 2. setup a 3D cube drawable
+> 3. add uniform buffer support

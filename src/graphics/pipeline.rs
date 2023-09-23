@@ -1,12 +1,12 @@
 
 use std::sync::Arc;
-use vulkano::{pipeline::{GraphicsPipeline, graphics::{GraphicsPipelineBuilder, vertex_input::{VertexInputState, VertexBufferDescription}, input_assembly::InputAssemblyState, viewport::{ViewportState, Viewport}, color_blend::ColorBlendState, rasterization::RasterizationState, depth_stencil::DepthStencilState, discard_rectangle::DiscardRectangleState, multisample::MultisampleState, tessellation::TessellationState, render_pass::PipelineRenderingCreateInfo}}, device::Device, render_pass::RenderPass, shader::{ShaderModule, SpecializationConstants}};
+use vulkano::{pipeline::{GraphicsPipeline, graphics::{GraphicsPipelineBuilder, vertex_input::{VertexInputState, VertexBufferDescription}, input_assembly::InputAssemblyState, viewport::{ViewportState, Viewport}, color_blend::ColorBlendState, rasterization::RasterizationState, depth_stencil::DepthStencilState, discard_rectangle::DiscardRectangleState, multisample::MultisampleState, tessellation::TessellationState, render_pass::{PipelineRenderingCreateInfo, PipelineRenderPassType}}}, device::Device, render_pass::{RenderPass, Subpass}, shader::{ShaderModule, SpecializationConstants}, command_buffer::RenderPassBeginInfo};
 
 use super::Graphics;
 
 pub struct PipelineBuilder
 {
-    pub rendering_create_info: PipelineRenderingCreateInfo,
+    pub subpass: Subpass,
     pub vertex_buffer_description: Option<VertexBufferDescription>,
     pub input_assembly_state: InputAssemblyState,
     pub vertex_shader: Option<Arc<ShaderModule>>,
@@ -25,10 +25,7 @@ impl PipelineBuilder
     pub fn new(gfx: &Graphics) -> Self
     {
         Self {
-            rendering_create_info: PipelineRenderingCreateInfo {
-                color_attachment_formats: vec![Some(gfx.get_swapchain_format())],
-                ..Default::default()
-            },
+            subpass: Subpass::from(gfx.get_main_render_pass(), 0).unwrap(),
             vertex_buffer_description: None,
             input_assembly_state: InputAssemblyState::new(),
             vertex_shader: None,
@@ -54,7 +51,7 @@ impl PipelineBuilder
             .entry_point("main").unwrap();
 
         GraphicsPipeline::start()
-            .render_pass(self.rendering_create_info)
+            .render_pass(PipelineRenderPassType::BeginRenderPass(self.subpass))
             .vertex_input_state(self.vertex_buffer_description.unwrap())
             .input_assembly_state(self.input_assembly_state)
             .vertex_shader(vertex_shader_entry, ())

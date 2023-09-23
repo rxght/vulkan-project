@@ -1,8 +1,14 @@
 use std::sync::Arc;
 
-use vulkano::{buffer::{BufferContents, Buffer, BufferCreateInfo, BufferCreateFlags, BufferUsage, Subbuffer}, memory::allocator::{StandardMemoryAllocator, AllocationCreateInfo}, pipeline::graphics::vertex_input::Vertex, format, command_buffer::{AutoCommandBufferBuilder, CommandBufferUsage, allocator::StandardCommandBufferAllocator}};
+use vulkano::{
+    buffer::{BufferContents, Buffer, BufferCreateInfo, BufferUsage, Subbuffer},
+    memory::allocator::AllocationCreateInfo, pipeline::graphics::vertex_input::Vertex,
+    command_buffer::{
+        AutoCommandBufferBuilder, allocator::StandardCommandBufferAllocator, PrimaryAutoCommandBuffer
+    }
+};
 
-use crate::app::graphics::Graphics;
+use crate::app::graphics::{pipeline::PipelineBuilder, Graphics};
 
 use super::Bindable;
 pub struct VertexBuffer<T> 
@@ -16,12 +22,16 @@ impl<T> Bindable for VertexBuffer<T>
     where
     T: Vertex + BufferContents
 {
-    fn bind_to_pipeline(&self, builder: &mut crate::app::graphics::pipeline::PipelineBuilder) {
+    fn bind_to_pipeline(&self, builder: &mut PipelineBuilder,
+        _index_count: &mut u32)
+    {
         builder.vertex_buffer_description = Some(T::per_vertex());
     }
     
-    fn bind(&self, gfx: &crate::app::graphics::Graphics) {
-        todo!();
+    fn bind(&self, _gfx: &Graphics,
+        builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer, StandardCommandBufferAllocator>
+    ) {
+        builder.bind_vertex_buffers(0, self.subbuffer.clone());
     }
 }
 
@@ -49,34 +59,26 @@ impl<T> VertexBuffer<T>
 
 pub struct IndexBuffer
 {
-    subbuffer: Subbuffer<[u8]>
+    subbuffer: Subbuffer<[u32]>
 }
 
 impl Bindable for IndexBuffer
 {
-    fn bind_to_pipeline(&self, builder: &mut crate::app::graphics::pipeline::PipelineBuilder) {}
-    fn bind(&self, gfx: &crate::app::graphics::Graphics) {
-        todo!();
+    fn bind_to_pipeline(&self, _builder: &mut PipelineBuilder,
+        index_count: &mut u32)
+    {
+        *index_count = self.subbuffer.len().try_into().unwrap();
     }
-}
-
-#[derive(BufferContents)]
-#[repr(C)]
-pub struct BufferContentWrapper<T> { index: T }
-impl<T> BufferContentWrapper<T>
-{
-    pub fn new(val: T) -> Self {
-        Self {
-            index: val
-        }
+    fn bind(&self, _gfx: &Graphics,
+        builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer, StandardCommandBufferAllocator>
+    ) {
+        builder.bind_index_buffer(self.subbuffer.clone());
     }
 }
 
 impl IndexBuffer
 {
-    pub fn new<T>(gfx: &Graphics, indices: Vec<T>) -> Arc<Self>
-    where
-        BufferContentWrapper<T>: BufferContents
+    pub fn new(gfx: &Graphics, indices: Vec<u32>) -> Arc<Self>
     {
         Arc::new(Self {
             subbuffer: Buffer::from_iter(gfx.get_allocator(), BufferCreateInfo {
@@ -85,10 +87,9 @@ impl IndexBuffer
             }, AllocationCreateInfo {
                 usage: vulkano::memory::allocator::MemoryUsage::DeviceOnly,
                 ..Default::default()
-            }, indices.into_iter().map(|p| BufferContentWrapper::new(p))
+            }, indices.into_iter()
             )
                 .expect("Failed to create index buffer.")
-                .into_bytes()
         })
     }
 }
