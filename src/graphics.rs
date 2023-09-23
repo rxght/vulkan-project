@@ -107,18 +107,18 @@ impl QueueIndices {
 
 pub struct Graphics
 {
-    library: Arc<VulkanLibrary>,
-    instance: Arc<Instance>,
-    debug_messenger: Option<DebugUtilsMessenger>,
-    surface: Arc<Surface>,
-    physical_device: Arc<PhysicalDevice>,
+    //library: Arc<VulkanLibrary>,
+    //instance: Arc<Instance>,
+    //debug_messenger: Option<DebugUtilsMessenger>,
+    //surface: Arc<Surface>,
+    //physical_device: Arc<PhysicalDevice>,
     device: Arc<Device>,
     queues: Queues,
     allocator: StandardMemoryAllocator,
     cmd_allocator: StandardCommandBufferAllocator,
 
     swapchain: Arc<Swapchain>,
-    swapchain_images: Vec<Arc<SwapchainImage>>,
+    //swapchain_images: Vec<Arc<SwapchainImage>>,
     main_render_pass: Arc<RenderPass>,
     framebuffers: Vec<Arc<Framebuffer>>,
 
@@ -141,8 +141,7 @@ impl Graphics
         let instance =
             create_instance(library.clone());
 
-        let debug_messenger =
-            create_debug_messenger(instance.clone());
+        //let debug_messenger = create_debug_messenger(instance.clone());
 
         let (event_loop, surface) =
             create_window(instance.clone());
@@ -176,17 +175,17 @@ impl Graphics
 
         (
             Graphics {
-                library: library,
-                instance: instance,
-                debug_messenger: None,
-                surface: surface,
-                physical_device: physical_device,
+                //library: library,
+                //instance: instance,
+                //debug_messenger: None,
+                //surface: surface,
+                //physical_device: physical_device,
                 device: device,
                 queues: queues,
                 allocator: memory_allocator,
                 cmd_allocator: cmd_allocator,
                 swapchain: swapchain,
-                swapchain_images: swapchain_images,
+                //swapchain_images: swapchain_images,
                 main_render_pass: main_render_pass,
                 framebuffers: framebuffers,
 
@@ -295,12 +294,8 @@ impl Graphics
             }
         };
 
+        if suboptimal { self.recreate_swapchain(); }
         self.inflight_index = (self.inflight_index + 1) % IN_FLIGHT_COUNT as u32;
-    }
-
-    pub fn invalidate_command_buffer(&mut self)
-    {
-        self.main_command_buffer = None;
     }
 
     pub fn register_drawable(&mut self, drawable_entry: &mut DrawableEntry)
