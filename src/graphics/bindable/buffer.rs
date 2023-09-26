@@ -8,7 +8,7 @@ use vulkano::{
     }
 };
 
-use crate::app::graphics::{pipeline::PipelineBuilder, Graphics};
+use crate::graphics::{pipeline::PipelineBuilder, Graphics};
 
 use super::Bindable;
 pub struct VertexBuffer<T> 

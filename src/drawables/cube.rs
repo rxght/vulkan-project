@@ -1,5 +1,5 @@
 use vulkano::{buffer::BufferContents, pipeline::graphics::vertex_input::Vertex};
-use crate::app::graphics::{drawable::{DrawableEntry, GenericDrawable}, Graphics, bindable};
+use crate::graphics::{drawable::{DrawableEntry, GenericDrawable}, Graphics, bindable};
 use cgmath::{prelude::*, Matrix4, Perspective, PerspectiveFov};
 
 pub fn new(gfx: &Graphics) -> DrawableEntry

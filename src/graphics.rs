@@ -216,6 +216,7 @@ impl Graphics
     pub fn get_shared_data_map(&self) -> &HashMap<u32, Weak<DrawableSharedPart>> { &self.shared_data_map }
     pub fn get_swapchain_format(&self) -> Format {self.swapchain.image_format()}
     pub fn get_descriptor_set_allocator(&self) -> &StandardDescriptorSetAllocator { &self.descriptor_set_allocator }
+    pub fn get_window(&self) -> &Window { self.surface.object().unwrap().downcast_ref().unwrap() }
 
     pub fn recreate_command_buffer(&mut self)
     {

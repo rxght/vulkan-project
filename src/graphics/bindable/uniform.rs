@@ -2,13 +2,13 @@ use std::{sync::Arc, mem::size_of, collections::BTreeMap};
 
 use vulkano::{
     buffer::{BufferContents, Buffer, BufferCreateInfo, BufferUsage, Subbuffer, BufferError},
-    memory::allocator::{AllocationCreateInfo, MemoryUsage}, pipeline::{graphics::vertex_input::Vertex, PipelineLayout, GraphicsPipeline},
+    memory::allocator::{AllocationCreateInfo, MemoryUsage}, pipeline::PipelineLayout,
     command_buffer::{
         AutoCommandBufferBuilder, allocator::StandardCommandBufferAllocator, PrimaryAutoCommandBuffer
-    }, sync::Sharing, descriptor_set::{DescriptorSet, allocator::{DescriptorSetAllocator, StandardDescriptorSetAllocator}, DescriptorSetsCollection, PersistentDescriptorSet, layout::{DescriptorSetLayoutCreateInfo, DescriptorSetLayout, DescriptorSetLayoutBinding, DescriptorType}, WriteDescriptorSet}, shader::ShaderStages
+    }, sync::Sharing, descriptor_set::{DescriptorSet, PersistentDescriptorSet, layout::{DescriptorSetLayoutCreateInfo, DescriptorSetLayout, DescriptorSetLayoutBinding, DescriptorType}, WriteDescriptorSet}, shader::ShaderStages
 };
 
-use crate::app::graphics::{pipeline::PipelineBuilder, Graphics};
+use crate::graphics::{pipeline::PipelineBuilder, Graphics};
 
 use super::Bindable;
 pub struct UniformBuffer<T> 
@@ -104,7 +104,7 @@ impl<T> Bindable for UniformBuffer<T>
     {
         builder.desriptor_set_layouts.push(self.layout.clone());
     }
-    fn bind(&self, gfx: &Graphics,
+    fn bind(&self, _gfx: &Graphics,
         builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer, StandardCommandBufferAllocator>,
         pipeline_layout: Arc<PipelineLayout>
     ) {

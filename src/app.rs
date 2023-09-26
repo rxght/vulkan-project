@@ -1,12 +1,13 @@
 use std::sync::Arc;
 use cgmath::Vector3;
 use vulkano::{sync::event::Event, buffer::BufferContents, pipeline::graphics::vertex_input::Vertex, format};
-use winit::event_loop::EventLoop;
-use graphics::Graphics;
-use crate::app::graphics::bindable;
-use self::{graphics::drawable::{DrawableEntry, self}, drawables::Ubo};
+use winit::{event_loop::EventLoop, window::Window};
+use crate::graphics::Graphics;
+use crate::graphics::bindable;
+use crate::graphics::drawable::{DrawableEntry, self};
 
-mod graphics;
+use self::drawables::Ubo;
+
 mod drawables {
     pub mod triangle;
     pub mod cube;
@@ -16,26 +17,22 @@ mod drawables {
 pub struct App
 {
     start_time: std::time::Instant,
-    triangle: drawables::UboTestDrawable,
-    gfx: Graphics
+    triangle: drawables::UboTestDrawable
 }
 
 impl App
 {
-    pub fn new() -> (App, EventLoop<()>)
+    pub fn new(gfx: &mut Graphics) -> Self
     {
-        let (mut gfx, event_loop) = Graphics::new();
-        (Self {
+        Self {
             start_time: std::time::Instant::now(),
-            triangle: drawables::UboTestDrawable::new(&mut gfx, true),
-            gfx: gfx
-
-        }, event_loop)
+            triangle: drawables::UboTestDrawable::new(gfx, true)
+        }
     }
     
     pub fn resize_callback(&mut self)
     {
-        self.gfx.recreate_swapchain();
+        
     }
 
     pub fn run(&mut self)
@@ -44,7 +41,5 @@ impl App
         let brightness = (time.sin() + 1.0) / 2.0;
 
         self.triangle.uniform.update_data(Ubo{ brightness: brightness }).unwrap();
-
-        self.gfx.draw_frame();
     }
 }

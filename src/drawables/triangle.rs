@@ -1,6 +1,6 @@
 use vulkano::{buffer::BufferContents, pipeline::graphics::vertex_input::Vertex};
 
-use crate::app::graphics::{drawable::{GenericDrawable, DrawableEntry}, Graphics, bindable};
+use crate::graphics::{drawable::{GenericDrawable, DrawableEntry}, Graphics, bindable};
 
 
 pub fn new(gfx: &mut Graphics, create_registered: bool) -> DrawableEntry
