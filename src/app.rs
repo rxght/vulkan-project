@@ -4,17 +4,19 @@ use vulkano::{sync::event::Event, buffer::BufferContents, pipeline::graphics::ve
 use winit::event_loop::EventLoop;
 use graphics::Graphics;
 use crate::app::graphics::bindable;
-use self::graphics::drawable::{DrawableEntry, self};
+use self::{graphics::drawable::{DrawableEntry, self}, drawables::Ubo};
 
 mod graphics;
 mod drawables {
     pub mod triangle;
+    pub mod cube;
+    mod ubotest; pub use ubotest::*;
 }
 
 pub struct App
 {
-    triangle: DrawableEntry,
-
+    start_time: std::time::Instant,
+    triangle: drawables::UboTestDrawable,
     gfx: Graphics
 }
 
@@ -24,8 +26,8 @@ impl App
     {
         let (mut gfx, event_loop) = Graphics::new();
         (Self {
-
-            triangle: drawables::triangle::new(&mut gfx, true),
+            start_time: std::time::Instant::now(),
+            triangle: drawables::UboTestDrawable::new(&mut gfx, true),
             gfx: gfx
 
         }, event_loop)
@@ -38,6 +40,11 @@ impl App
 
     pub fn run(&mut self)
     {
+        let time = (std::time::Instant::now() - self.start_time).as_secs_f32();
+        let brightness = (time.sin() + 1.0) / 2.0;
+
+        self.triangle.uniform.update_data(Ubo{ brightness: brightness }).unwrap();
+
         self.gfx.draw_frame();
     }
 }

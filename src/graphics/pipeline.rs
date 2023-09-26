@@ -1,6 +1,6 @@
 
 use std::sync::Arc;
-use vulkano::{pipeline::{GraphicsPipeline, graphics::{GraphicsPipelineBuilder, vertex_input::{VertexInputState, VertexBufferDescription}, input_assembly::InputAssemblyState, viewport::{ViewportState, Viewport}, color_blend::ColorBlendState, rasterization::RasterizationState, depth_stencil::DepthStencilState, discard_rectangle::DiscardRectangleState, multisample::MultisampleState, tessellation::TessellationState, render_pass::{PipelineRenderingCreateInfo, PipelineRenderPassType}}}, device::Device, render_pass::{RenderPass, Subpass}, shader::{ShaderModule, SpecializationConstants}, command_buffer::RenderPassBeginInfo};
+use vulkano::{pipeline::{GraphicsPipeline, graphics::{GraphicsPipelineBuilder, vertex_input::{VertexInputState, VertexBufferDescription}, input_assembly::InputAssemblyState, viewport::{ViewportState, Viewport}, color_blend::ColorBlendState, rasterization::RasterizationState, depth_stencil::DepthStencilState, discard_rectangle::DiscardRectangleState, multisample::MultisampleState, tessellation::TessellationState, render_pass::{PipelineRenderingCreateInfo, PipelineRenderPassType}}, PipelineLayout, layout::{PipelineLayoutCreateInfo, PushConstantRange}}, device::Device, render_pass::{RenderPass, Subpass}, shader::{ShaderModule, SpecializationConstants}, command_buffer::RenderPassBeginInfo, descriptor_set::layout::DescriptorSetLayout};
 
 use super::Graphics;
 
@@ -18,6 +18,9 @@ pub struct PipelineBuilder
     pub discard_rectangle_state: DiscardRectangleState,
     pub multisample_state: MultisampleState,
     pub tessellation_state: TessellationState,
+
+    pub desriptor_set_layouts: Vec<Arc<DescriptorSetLayout>>,
+    pub push_constant_ranges: Vec<PushConstantRange>,
 }
 
 impl PipelineBuilder
@@ -36,11 +39,14 @@ impl PipelineBuilder
             depth_stencil_state: DepthStencilState::default(),
             discard_rectangle_state: DiscardRectangleState::default(),
             multisample_state: MultisampleState::default(),
-            tessellation_state: TessellationState::default()
+            tessellation_state: TessellationState::default(),
+
+            desriptor_set_layouts: Vec::new(),
+            push_constant_ranges: Vec::new(),
         }
     }
 
-    pub fn build(self, device: Arc<Device>) -> Arc<GraphicsPipeline>
+    pub fn build(self, device: Arc<Device>) -> (Arc<GraphicsPipeline>, Arc<PipelineLayout>)
     {
         let vertex_shader_entry = self.vertex_shader.as_ref()
             .expect("No vertex shader supplied.")
@@ -50,19 +56,31 @@ impl PipelineBuilder
             .expect("No fragment shader supplied.")
             .entry_point("main").unwrap();
 
-        GraphicsPipeline::start()
-            .render_pass(PipelineRenderPassType::BeginRenderPass(self.subpass))
-            .vertex_input_state(self.vertex_buffer_description.unwrap())
-            .input_assembly_state(self.input_assembly_state)
-            .vertex_shader(vertex_shader_entry, ())
-            .fragment_shader(fragment_shader_entry, ())
-            .viewport_state(self.viewport_state)
-            .color_blend_state(self.color_blend_state)
-            .rasterization_state(self.rasterization_state)
-            .depth_stencil_state(self.depth_stencil_state)
-            .discard_rectangle_state(self.discard_rectangle_state)
-            .multisample_state(self.multisample_state)
-            .tessellation_state(self.tessellation_state)
-            .build(device).expect("Failed to create pipeline!")
+        let layout = PipelineLayout::new(
+            device.clone(),
+            PipelineLayoutCreateInfo {
+                set_layouts: self.desriptor_set_layouts,
+                push_constant_ranges: self.push_constant_ranges,
+                ..Default::default()
+            }
+        ).unwrap();
+
+        (
+            GraphicsPipeline::start()
+                .render_pass(PipelineRenderPassType::BeginRenderPass(self.subpass))
+                .vertex_input_state(self.vertex_buffer_description.unwrap())
+                .input_assembly_state(self.input_assembly_state)
+                .vertex_shader(vertex_shader_entry, ())
+                .fragment_shader(fragment_shader_entry, ())
+                .viewport_state(self.viewport_state)
+                .color_blend_state(self.color_blend_state)
+                .rasterization_state(self.rasterization_state)
+                .depth_stencil_state(self.depth_stencil_state)
+                .discard_rectangle_state(self.discard_rectangle_state)
+                .multisample_state(self.multisample_state)
+                .tessellation_state(self.tessellation_state)
+                .with_pipeline_layout(device.clone(), layout.clone()).expect("Failed to create pipeline!"),
+            layout
+        )
     }
 }

@@ -8,6 +8,7 @@ use std::cmp::min;
 use std::sync::{Arc, Weak};
 use vulkano::command_buffer::{PrimaryAutoCommandBuffer, RenderPassBeginInfo};
 use vulkano::command_buffer::allocator::StandardCommandBufferAlloc;
+use vulkano::descriptor_set::allocator::StandardDescriptorSetAllocator;
 use vulkano::format::ClearValue;
 use vulkano::{
     memory::allocator::StandardMemoryAllocator,
@@ -114,8 +115,10 @@ pub struct Graphics
     //physical_device: Arc<PhysicalDevice>,
     device: Arc<Device>,
     queues: Queues,
+
     allocator: StandardMemoryAllocator,
     cmd_allocator: StandardCommandBufferAllocator,
+    descriptor_set_allocator: StandardDescriptorSetAllocator,
 
     swapchain: Arc<Swapchain>,
     //swapchain_images: Vec<Arc<SwapchainImage>>,
@@ -158,6 +161,9 @@ impl Graphics
         let cmd_allocator =
             StandardCommandBufferAllocator::new(device.clone(), Default::default());
 
+        let descriptor_set_allocator =
+            StandardDescriptorSetAllocator::new(device.clone());
+
         let (swapchain, swapchain_images) =
             create_swapchain(device.clone(), surface.clone());
 
@@ -182,8 +188,11 @@ impl Graphics
                 //physical_device: physical_device,
                 device: device,
                 queues: queues,
+
                 allocator: memory_allocator,
                 cmd_allocator: cmd_allocator,
+                descriptor_set_allocator: descriptor_set_allocator,
+                
                 swapchain: swapchain,
                 //swapchain_images: swapchain_images,
                 main_render_pass: main_render_pass,
@@ -206,6 +215,7 @@ impl Graphics
     pub fn get_allocator(&self) -> &StandardMemoryAllocator { &self.allocator }
     pub fn get_shared_data_map(&self) -> &HashMap<u32, Weak<DrawableSharedPart>> { &self.shared_data_map }
     pub fn get_swapchain_format(&self) -> Format {self.swapchain.image_format()}
+    pub fn get_descriptor_set_allocator(&self) -> &StandardDescriptorSetAllocator { &self.descriptor_set_allocator }
 
     pub fn recreate_command_buffer(&mut self)
     {
@@ -239,11 +249,11 @@ impl Graphics
         {
             for bindable in drawable.get_bindables()
             {
-                bindable.bind(&self, &mut builder);
+                bindable.bind(&self, &mut builder, drawable.get_pipeline_layout());
             }
             for bindable in drawable.get_shared_bindables()
             {
-                bindable.bind(&self, &mut builder);
+                bindable.bind(&self, &mut builder, drawable.get_pipeline_layout());
             }
             builder.bind_pipeline_graphics(drawable.get_pipeline());
             builder.draw_indexed(drawable.get_index_count(), 1, 0, 0, 0).unwrap();

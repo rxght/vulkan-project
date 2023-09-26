@@ -1,6 +1,6 @@
 
 use std::sync::{Arc, Weak};
-use vulkano::pipeline::GraphicsPipeline;
+use vulkano::pipeline::{GraphicsPipeline, PipelineLayout};
 
 use super::bindable::Bindable;
 use super::pipeline::PipelineBuilder;
@@ -11,12 +11,14 @@ pub trait Drawable
     fn get_shared_bindables(&self) -> &Vec<Arc<dyn Bindable>>;
     fn get_pipeline(&self) -> Arc<GraphicsPipeline>;
     fn get_index_count(&self) -> u32;
+    fn get_pipeline_layout(&self) -> Arc<PipelineLayout>;
 }
 
 pub struct DrawableSharedPart
 {
     pub bindables: Vec<Arc<dyn Bindable>>,
     pub pipeline: Arc<GraphicsPipeline>,
+    pub layout: Arc<PipelineLayout>,
     pub index_count: u32,
 }
 
@@ -88,7 +90,8 @@ impl GenericDrawable
                     bindable.bind_to_pipeline(&mut pipeline_builder, &mut index_count);
                 }
                 
-                let pipeline = pipeline_builder.build(gfx.get_device());
+                let (pipeline, layout) =
+                    pipeline_builder.build(gfx.get_device());
 
                 DrawableEntry{
                     entry: Arc::new(Self {
@@ -96,7 +99,8 @@ impl GenericDrawable
                         shared_part: Arc::new(DrawableSharedPart {
                             index_count: index_count,
                             bindables: shared_bindables,
-                            pipeline: pipeline
+                            pipeline: pipeline,
+                            layout: layout,
                         })
                     }),
                     registered_uid: None,
@@ -112,4 +116,5 @@ impl Drawable for GenericDrawable
     fn get_shared_bindables(&self) -> &Vec<Arc<dyn Bindable>> { &self.shared_part.bindables }
     fn get_pipeline(&self) -> Arc<GraphicsPipeline> { self.shared_part.pipeline.clone() }
     fn get_index_count(&self) -> u32 { self.shared_part.index_count }
+    fn get_pipeline_layout(&self) -> Arc<PipelineLayout> { self.shared_part.layout.clone() }
 }

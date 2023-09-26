@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use vulkano::{
     buffer::{BufferContents, Buffer, BufferCreateInfo, BufferUsage, Subbuffer},
-    memory::allocator::AllocationCreateInfo, pipeline::graphics::vertex_input::Vertex,
+    memory::allocator::AllocationCreateInfo, pipeline::{graphics::vertex_input::Vertex, PipelineLayout},
     command_buffer::{
         AutoCommandBufferBuilder, allocator::StandardCommandBufferAllocator, PrimaryAutoCommandBuffer
     }
@@ -29,7 +29,8 @@ impl<T> Bindable for VertexBuffer<T>
     }
     
     fn bind(&self, _gfx: &Graphics,
-        builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer, StandardCommandBufferAllocator>
+        builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer, StandardCommandBufferAllocator>,
+        _: Arc<PipelineLayout>
     ) {
         builder.bind_vertex_buffers(0, self.subbuffer.clone());
     }
@@ -70,7 +71,8 @@ impl Bindable for IndexBuffer
         *index_count = self.subbuffer.len().try_into().unwrap();
     }
     fn bind(&self, _gfx: &Graphics,
-        builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer, StandardCommandBufferAllocator>
+        builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer, StandardCommandBufferAllocator>,
+        _: Arc<PipelineLayout>
     ) {
         builder.bind_index_buffer(self.subbuffer.clone());
     }
