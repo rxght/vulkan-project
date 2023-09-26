@@ -48,7 +48,7 @@ impl<T> VertexBuffer<T>
                 usage: BufferUsage::VERTEX_BUFFER,
                 ..Default::default()
             }, AllocationCreateInfo {
-                usage: vulkano::memory::allocator::MemoryUsage::DeviceOnly,
+                usage: vulkano::memory::allocator::MemoryUsage::Upload,
                 ..Default::default()
             }, vertices.into_iter()
             )
@@ -85,7 +85,7 @@ impl IndexBuffer
                 usage: BufferUsage::INDEX_BUFFER,
                 ..Default::default()
             }, AllocationCreateInfo {
-                usage: vulkano::memory::allocator::MemoryUsage::DeviceOnly,
+                usage: vulkano::memory::allocator::MemoryUsage::Upload,
                 ..Default::default()
             }, indices.into_iter()
             )
