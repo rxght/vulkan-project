@@ -1,5 +1,5 @@
 use vulkano::{buffer::BufferContents, pipeline::graphics::vertex_input::Vertex};
-use crate::graphics::{drawable::{DrawableEntry, GenericDrawable}, Graphics, bindable};
+use crate::graphics::{drawable::{DrawableEntry, GenericDrawable}, Graphics, bindable, shaders::{vert_3dColored, frag_3dColored}};
 use cgmath::{prelude::*, Matrix4, Perspective, PerspectiveFov};
 
 pub fn new(gfx: &Graphics) -> DrawableEntry
@@ -48,8 +48,8 @@ pub fn new(gfx: &Graphics) -> DrawableEntry
         ];
         
         vec![
-            bindable::VertexShader::from_module(gfx.create_shader_module("shaders/3dColored.vert")),
-            bindable::FragmentShader::from_module(gfx.create_shader_module("shaders/3dColored.frag")),
+            bindable::VertexShader::from_module(vert_3dColored::load(gfx.get_device()).unwrap()),
+            bindable::FragmentShader::from_module(frag_3dColored::load(gfx.get_device()).unwrap()),
             bindable::IndexBuffer::new(&gfx, indices),
             bindable::VertexBuffer::new(&gfx, vertices),
         ]

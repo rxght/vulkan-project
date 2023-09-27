@@ -1,6 +1,6 @@
 use vulkano::{buffer::BufferContents, pipeline::graphics::vertex_input::Vertex};
 
-use crate::graphics::{drawable::{GenericDrawable, DrawableEntry}, Graphics, bindable};
+use crate::graphics::{drawable::{GenericDrawable, DrawableEntry}, Graphics, bindable, shaders::{vert_first, frag_first}};
 
 
 pub fn new(gfx: &mut Graphics, create_registered: bool) -> DrawableEntry
@@ -26,8 +26,8 @@ pub fn new(gfx: &mut Graphics, create_registered: bool) -> DrawableEntry
         ];
 
         vec![
-            bindable::VertexShader::from_module(gfx.create_shader_module("shaders/first.vert")),
-            bindable::FragmentShader::from_module(gfx.create_shader_module("shaders/first.frag")),
+            bindable::VertexShader::from_module(vert_first::load(gfx.get_device()).unwrap()),
+            bindable::FragmentShader::from_module(frag_first::load(gfx.get_device()).unwrap()),
             bindable::IndexBuffer::new(&gfx, indices),
             bindable::VertexBuffer::new(&gfx, vertices),
         ]

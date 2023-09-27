@@ -2,6 +2,7 @@
 pub mod drawable;
 pub mod bindable;
 pub mod pipeline;
+pub mod shaders;
 
 use std::collections::HashMap;
 use std::cmp::min;
@@ -370,18 +371,6 @@ impl Graphics
 
         self.swapchain = swapchain;
         self.framebuffers = framebuffers;
-    }
-
-    pub fn create_shader_module(&self, path: &str) -> Arc<ShaderModule>
-    {
-        let bytes =
-            std::fs::read(path).expect("shader file not found");
-        
-        unsafe
-        {
-            ShaderModule::from_bytes(self.device.clone(), bytes.as_ref())
-                .expect("Failed to create shader module!")
-        }
     }
 }
 

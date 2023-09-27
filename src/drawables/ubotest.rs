@@ -2,14 +2,10 @@ use std::sync::Arc;
 
 use vulkano::{buffer::BufferContents, pipeline::graphics::vertex_input::Vertex};
 
-use crate::graphics::{drawable::{GenericDrawable, DrawableEntry}, Graphics, bindable::{self, UniformBuffer}};
+use crate::graphics::{drawable::{GenericDrawable, DrawableEntry}, Graphics, bindable::{self, UniformBuffer}, shaders::{frag_uniform_test, vert_first}};
 
-#[derive(BufferContents)]
-#[repr(C)]
-pub struct Ubo
-{
-    pub brightness: f32
-}
+pub use frag_uniform_test::ubo as Ubo;
+
 pub struct UboTestDrawable
 {
     entry: DrawableEntry,
@@ -45,8 +41,8 @@ impl UboTestDrawable
             ];
 
             vec![
-                bindable::VertexShader::from_module(gfx.create_shader_module("shaders/first.vert")),
-                bindable::FragmentShader::from_module(gfx.create_shader_module("shaders/uniform_test.frag")),
+                bindable::VertexShader::from_module(vert_first::load(gfx.get_device()).unwrap()),
+                bindable::FragmentShader::from_module(frag_uniform_test::load(gfx.get_device()).unwrap()),
                 bindable::IndexBuffer::new(&gfx, indices),
                 bindable::VertexBuffer::new(&gfx, vertices),
             ]
