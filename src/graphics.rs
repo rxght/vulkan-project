@@ -375,7 +375,7 @@ impl Graphics
     pub fn create_shader_module(&self, path: &str) -> Arc<ShaderModule>
     {
         let bytes =
-            std::fs::read(path).expect("Couldn't find the file specified");
+            std::fs::read(path).expect("shader file not found");
         
         unsafe
         {
