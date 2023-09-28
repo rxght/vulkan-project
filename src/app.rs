@@ -40,15 +40,11 @@ impl App
     {
         let time = (std::time::Instant::now() - self.start_time).as_secs_f32();
 
-        // clone the exisiting uniform buffer
-        let mut uniform_buffer = self.cube.uniform.data().unwrap().clone();
+        let mut uniform_buffer =
+            self.cube.uniform.subbuffer.write().unwrap();
 
         // change the model matrix
         uniform_buffer.model = 
             cgmath::Matrix4::from_angle_y(Rad(time)).into();
-
-        // upload the changes
-        self.cube.uniform.update_data(uniform_buffer).unwrap();
-
     }
 }

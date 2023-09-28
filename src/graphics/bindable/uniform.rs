@@ -1,7 +1,7 @@
 use std::{sync::Arc, mem::size_of, collections::BTreeMap};
 
 use vulkano::{
-    buffer::{BufferContents, Buffer, BufferCreateInfo, BufferUsage, Subbuffer, BufferError},
+    buffer::{BufferContents, Buffer, BufferCreateInfo, BufferUsage, Subbuffer, BufferError, subbuffer::BufferWriteGuard},
     memory::allocator::{AllocationCreateInfo, MemoryUsage}, pipeline::PipelineLayout,
     command_buffer::{
         AutoCommandBufferBuilder, allocator::StandardCommandBufferAllocator, PrimaryAutoCommandBuffer
@@ -15,7 +15,7 @@ pub struct UniformBuffer<T>
     where
     T: BufferContents
 {
-    subbuffer: Subbuffer<T>,
+    pub subbuffer: Subbuffer<T>,
     layout: Arc<DescriptorSetLayout>,
     descriptor_set: Arc<PersistentDescriptorSet>,
 }
@@ -61,37 +61,6 @@ impl<T> UniformBuffer<T>
             layout: layout,
             descriptor_set: set,
         })
-    }
-
-    pub fn update_data(&self, data: T) -> Result<(), BufferError>
-    {
-        let mutable_reference;
-        unsafe
-        {
-            mutable_reference = self.subbuffer
-                .mapped_ptr()
-                .unwrap()
-                .cast::<T>()
-                .as_mut();
-        }
-        //let guard = self.subbuffer.write()?;
-        *mutable_reference = data;
-        
-        Ok(())
-    }
-
-    pub fn data(&self) -> Result<&T, BufferError>
-    {
-        let reference;
-        unsafe
-        {
-            reference = self.subbuffer
-                .mapped_ptr()
-                .unwrap()
-                .cast::<T>()
-                .as_ref();
-        }
-        Ok(reference)
     }
 }
 
