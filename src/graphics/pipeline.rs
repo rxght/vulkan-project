@@ -5,13 +5,13 @@ use vulkano::{
         GraphicsPipeline,
         graphics::{
             vertex_input::VertexBufferDescription, input_assembly::InputAssemblyState,
-            viewport::ViewportState, color_blend::ColorBlendState, rasterization::RasterizationState,
+            viewport::ViewportState, color_blend::ColorBlendState, rasterization::{RasterizationState, PolygonMode, CullMode, FrontFace, DepthBiasState, DepthBias},
             depth_stencil::DepthStencilState, discard_rectangle::DiscardRectangleState,
             multisample::MultisampleState, tessellation::TessellationState,
             render_pass::PipelineRenderPassType
         },
         PipelineLayout,
-        layout::{PipelineLayoutCreateInfo, PushConstantRange}
+        layout::{PipelineLayoutCreateInfo, PushConstantRange}, StateMode
     },
     device::Device,
     render_pass::Subpass,
@@ -52,11 +52,16 @@ impl PipelineBuilder
             fragment_shader: None,
             viewport_state: ViewportState::viewport_dynamic_scissor_irrelevant(),
             color_blend_state: ColorBlendState::default(),
-            rasterization_state: RasterizationState::default(),
-            depth_stencil_state: DepthStencilState::default(),
-            discard_rectangle_state: DiscardRectangleState::default(),
-            multisample_state: MultisampleState::default(),
-            tessellation_state: TessellationState::default(),
+            rasterization_state: RasterizationState {
+                cull_mode: StateMode::Fixed(CullMode::Back),
+                front_face: StateMode::Fixed(FrontFace::Clockwise),
+                depth_bias: None,
+                ..Default::default()
+            },
+            depth_stencil_state: DepthStencilState::disabled(),
+            discard_rectangle_state: DiscardRectangleState::new(),
+            multisample_state: MultisampleState::new(),
+            tessellation_state: TessellationState::new(),
 
             desriptor_set_layouts: Vec::new(),
             push_constant_ranges: Vec::new(),
