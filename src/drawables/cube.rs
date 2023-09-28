@@ -22,11 +22,11 @@ impl Cube
         let uniform = UniformBuffer::new(gfx, 0, Ubo {
             model: cgmath::Matrix4::identity().into(),
             view: cgmath::Matrix4::look_at_rh(
-                Point3{x: 0.0, y: 1.0, z: 2.0},
+                Point3{x: 0.0, y: 1.0, z: 1.3},
                 Point3{x: 0.0, y: 0.0, z: 0.0},
                 Vector3{x: 0.0, y: -1.0, z: 0.0}
             ).into(),
-            proj: cgmath::perspective(Deg(90.0), aspect, 0.5, 10.0).into()
+            proj: cgmath::perspective(Deg(90.0), aspect, 0.2, 10.0).into()
         }, ShaderStages::VERTEX);
 
         let mut entry = GenericDrawable::new(gfx, 1, || {

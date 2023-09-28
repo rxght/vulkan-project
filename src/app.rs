@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use cgmath::Rad;
 use cgmath::Vector3;
 use vulkano::{sync::event::Event, buffer::BufferContents, pipeline::graphics::vertex_input::Vertex, format};
 use winit::{event_loop::EventLoop, window::Window};
@@ -37,9 +38,17 @@ impl App
 
     pub fn run(&mut self)
     {
-        //let time = (std::time::Instant::now() - self.start_time).as_secs_f32();
-        //let brightness = (time.sin() + 1.0) / 2.0;
+        let time = (std::time::Instant::now() - self.start_time).as_secs_f32();
 
-        //self.cube.uniform.update_data(drawables::cube::Ubo{ brightness: brightness }).unwrap();
+        // clone the exisiting uniform buffer
+        let mut uniform_buffer = self.cube.uniform.data().unwrap().clone();
+
+        // change the model matrix
+        uniform_buffer.model = 
+            cgmath::Matrix4::from_angle_y(Rad(time)).into();
+
+        // upload the changes
+        self.cube.uniform.update_data(uniform_buffer).unwrap();
+
     }
 }
