@@ -3,11 +3,29 @@
 /* ------------------------*/
 
 #[allow(non_snake_case)]
-pub mod frag_3dColored
+pub mod vert_first
+{
+    vulkano_shaders::shader! {
+        ty: "vertex",
+        bytes: "./shaders/first.vert",
+    }
+}
+
+#[allow(non_snake_case)]
+pub mod frag_textured
 {
     vulkano_shaders::shader! {
         ty: "fragment",
-        bytes: "./shaders/3dColored.frag",
+        bytes: "./shaders/textured.frag",
+    }
+}
+
+#[allow(non_snake_case)]
+pub mod frag_uniform_test
+{
+    vulkano_shaders::shader! {
+        ty: "fragment",
+        bytes: "./shaders/uniform_test.frag",
     }
 }
 
@@ -21,6 +39,15 @@ pub mod vert_3dColored
 }
 
 #[allow(non_snake_case)]
+pub mod vert_textured
+{
+    vulkano_shaders::shader! {
+        ty: "vertex",
+        bytes: "./shaders/textured.vert",
+    }
+}
+
+#[allow(non_snake_case)]
 pub mod frag_first
 {
     vulkano_shaders::shader! {
@@ -30,19 +57,10 @@ pub mod frag_first
 }
 
 #[allow(non_snake_case)]
-pub mod vert_first
-{
-    vulkano_shaders::shader! {
-        ty: "vertex",
-        bytes: "./shaders/first.vert",
-    }
-}
-
-#[allow(non_snake_case)]
-pub mod frag_uniform_test
+pub mod frag_3dColored
 {
     vulkano_shaders::shader! {
         ty: "fragment",
-        bytes: "./shaders/uniform_test.frag",
+        bytes: "./shaders/3dColored.frag",
     }
 }
