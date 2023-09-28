@@ -17,7 +17,7 @@ mod drawables {
 pub struct App
 {
     start_time: std::time::Instant,
-    triangle: drawables::UboTestDrawable
+    cube: drawables::cube::Cube,
 }
 
 impl App
@@ -26,7 +26,7 @@ impl App
     {
         Self {
             start_time: std::time::Instant::now(),
-            triangle: drawables::UboTestDrawable::new(gfx, true)
+            cube: drawables::cube::Cube::new(gfx, true)
         }
     }
     
@@ -37,9 +37,9 @@ impl App
 
     pub fn run(&mut self)
     {
-        let time = (std::time::Instant::now() - self.start_time).as_secs_f32();
-        let brightness = (time.sin() + 1.0) / 2.0;
+        //let time = (std::time::Instant::now() - self.start_time).as_secs_f32();
+        //let brightness = (time.sin() + 1.0) / 2.0;
 
-        self.triangle.uniform.update_data(Ubo{ brightness: brightness }).unwrap();
+        //self.cube.uniform.update_data(drawables::cube::Ubo{ brightness: brightness }).unwrap();
     }
 }

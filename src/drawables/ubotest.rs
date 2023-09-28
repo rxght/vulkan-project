@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use vulkano::{buffer::BufferContents, pipeline::graphics::vertex_input::Vertex};
+use vulkano::{buffer::BufferContents, pipeline::graphics::vertex_input::Vertex, shader::ShaderStages};
 
 use crate::graphics::{drawable::{GenericDrawable, DrawableEntry}, Graphics, bindable::{self, UniformBuffer}, shaders::{frag_uniform_test, vert_first}};
 
@@ -17,7 +17,7 @@ impl UboTestDrawable
     pub fn new(gfx: &mut Graphics, create_registered: bool) -> Self
     {
         let uniform =
-            bindable::UniformBuffer::new(gfx, 0, Ubo{ brightness: 1.0 });
+            bindable::UniformBuffer::new(gfx, 0, Ubo{ brightness: 1.0 }, ShaderStages::FRAGMENT);
 
         let mut entry = GenericDrawable::new(&gfx, 0, || {
 

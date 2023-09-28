@@ -24,7 +24,7 @@ impl<T> UniformBuffer<T>
     where
     T: BufferContents
 {
-    pub fn new(gfx: &Graphics, binding: u32, data: T) -> Arc<Self>
+    pub fn new(gfx: &Graphics, binding: u32, data: T, stages: ShaderStages) -> Arc<Self>
     {
         let subbuffer = Buffer::from_data(gfx.get_allocator(), BufferCreateInfo{
             sharing: Sharing::Exclusive,
@@ -42,7 +42,7 @@ impl<T> UniformBuffer<T>
                     [(binding, DescriptorSetLayoutBinding {
                         descriptor_count: 1,
                         variable_descriptor_count: false,
-                        stages: ShaderStages::FRAGMENT,
+                        stages: stages,
                         ..DescriptorSetLayoutBinding::descriptor_type(DescriptorType::UniformBuffer)
                     })],
                 ),
