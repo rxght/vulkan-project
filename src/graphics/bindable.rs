@@ -7,10 +7,12 @@ use super::{pipeline::PipelineBuilder, Graphics};
 mod buffer;
 mod shader;
 mod uniform;
+mod texture;
 
 pub use buffer::*;
 pub use shader::*;
 pub use uniform::*;
+pub use texture::*;
 
 pub trait Bindable
 {

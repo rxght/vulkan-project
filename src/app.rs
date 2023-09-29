@@ -20,6 +20,7 @@ pub struct App
 {
     start_time: std::time::Instant,
     textest: drawables::textest::TexturedSquare,
+    textest2: drawables::textest::TexturedSquare,
 }
 
 impl App
@@ -28,7 +29,8 @@ impl App
     {
         Self {
             start_time: std::time::Instant::now(),
-            textest: drawables::textest::TexturedSquare::new(gfx, true)
+            textest: drawables::textest::TexturedSquare::new(gfx, true),
+            textest2: drawables::textest::TexturedSquare::new(gfx, true)
         }
     }
     
@@ -44,6 +46,9 @@ impl App
         unsafe {
             let ubo = self.textest.uniform.subbuffer.mapped_ptr().unwrap().cast::<Ubo>().as_mut();
             ubo.model = cgmath::Matrix4::from_angle_y(Rad(time.sin())).into();
+
+            let ubo = self.textest2.uniform.subbuffer.mapped_ptr().unwrap().cast::<Ubo>().as_mut();
+            ubo.model = cgmath::Matrix4::from_translation(Vector3 { x: 0.0, y: 0.0, z: (time*2.0).sin()/4.0 }).into();
         }
     }
 }

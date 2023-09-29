@@ -21,7 +21,7 @@ impl TexturedSquare {
         let uniform = UniformBuffer::new(gfx, 0, Ubo{
             model: cgmath::Matrix4::identity().into(),
             view: cgmath::Matrix4::look_at_rh(
-                Point3{x: 0.0, y: 1.0, z: 1.3},
+                Point3{x: 0.0, y: 0.5, z: 1.0},
                 Point3{x: 0.0, y: 0.0, z: 0.0},
                 Vector3{x: 0.0, y: -1.0, z: 0.0}
             ).into(),
@@ -42,10 +42,10 @@ impl TexturedSquare {
                 pub uv: [f32; 2],
             }
             let vertices: Vec<Vertex> = vec![
-                Vertex{pos: [-0.5,  0.5], uv: [0.0, 1.0]},
-                Vertex{pos: [-0.5, -0.5], uv: [0.0, 0.0]},
-                Vertex{pos: [ 0.5, -0.5], uv: [1.0, 0.0]},
-                Vertex{pos: [ 0.5,  0.5], uv: [1.0, 1.0]}
+                Vertex{pos: [-0.5,  0.5], uv: [0.0, 0.0]},
+                Vertex{pos: [-0.5, -0.5], uv: [0.0, 1.0]},
+                Vertex{pos: [ 0.5, -0.5], uv: [1.0, 1.0]},
+                Vertex{pos: [ 0.5,  0.5], uv: [1.0, 0.0]}
             ];
             let indices: Vec<u32> = vec![
                 0, 1, 2,
@@ -57,6 +57,7 @@ impl TexturedSquare {
                 bindable::FragmentShader::from_module(frag_textured::load(gfx.get_device()).unwrap()),
                 bindable::IndexBuffer::new(&gfx, indices),
                 bindable::VertexBuffer::new(&gfx, vertices),
+                bindable::Texture::new(gfx, "textures/batako.png", 1, 0),
             ]
         });
 
