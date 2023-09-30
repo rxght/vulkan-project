@@ -58,7 +58,7 @@ impl PipelineBuilder
                 depth_bias: None,
                 ..Default::default()
             },
-            depth_stencil_state: DepthStencilState::disabled(),
+            depth_stencil_state: DepthStencilState::simple_depth_test(),
             discard_rectangle_state: DiscardRectangleState::new(),
             multisample_state: MultisampleState::new(),
             tessellation_state: TessellationState::new(),

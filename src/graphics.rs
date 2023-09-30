@@ -10,7 +10,11 @@ use std::sync::{Arc, Weak};
 use vulkano::command_buffer::{PrimaryAutoCommandBuffer, RenderPassBeginInfo};
 use vulkano::command_buffer::allocator::StandardCommandBufferAlloc;
 use vulkano::descriptor_set::allocator::StandardDescriptorSetAllocator;
-use vulkano::format::ClearValue;
+use vulkano::format::{ClearValue, FormatFeatures};
+use vulkano::image::{AttachmentImage, ImageTiling, ImageAccess};
+use vulkano::render_pass::SubpassDependency;
+use vulkano::shader::spirv::AccessQualifier;
+use vulkano::sync::{PipelineStages, AccessFlags};
 use vulkano::{
     memory::allocator::StandardMemoryAllocator,
     command_buffer::{
@@ -124,6 +128,7 @@ pub struct Graphics
     swapchain: Arc<Swapchain>,
     //swapchain_images: Vec<Arc<SwapchainImage>>,
     main_render_pass: Arc<RenderPass>,
+    //depth_buffer: Vec<Arc<ImageView<AttachmentImage>>>,
     framebuffers: Vec<Arc<Framebuffer>>,
 
     // drawable stuff
@@ -168,14 +173,19 @@ impl Graphics
         let (swapchain, swapchain_images) =
             create_swapchain(device.clone(), surface.clone());
 
+        println!("Swapchain is using {:?} images.", swapchain.image_count());
+
         let swapchain_image_views =
             create_image_views(&swapchain_images, swapchain.clone());
 
+        let (depth_buffers, depth_format) =
+            create_depth_buffer(device.clone(), swapchain.clone(), &memory_allocator);
+
         let main_render_pass =
-            create_main_render_pass(device.clone(), swapchain.clone());
+            create_main_render_pass(device.clone(), swapchain.image_format(), depth_format);
 
         let framebuffers =
-            create_framebuffers(&swapchain_image_views, main_render_pass.clone());
+            create_framebuffers(&swapchain_image_views, main_render_pass.clone(), &depth_buffers);
 
         let mut futures = Vec::with_capacity(IN_FLIGHT_COUNT);
         futures.resize_with(IN_FLIGHT_COUNT, || Some(sync::now(device.clone()).boxed()));
@@ -241,7 +251,10 @@ impl Graphics
             .begin_render_pass(
                 RenderPassBeginInfo{
                     render_pass: self.main_render_pass.clone(),
-                    clear_values: vec![Some(ClearValue::Float([0.0, 0.0, 0.0, 1.0]))],
+                    clear_values: vec![
+                        Some(ClearValue::Float([0.0, 0.0, 0.0, 1.0])),
+                        Some(ClearValue::Depth(1.0))
+                    ],
                     ..RenderPassBeginInfo::framebuffer(self.framebuffers[self.framebuffer_index as usize].clone())
                 },
                 vulkano::command_buffer::SubpassContents::Inline
@@ -318,7 +331,6 @@ impl Graphics
 
         drawable_entry.registered_uid = Some(self.registered_drawables.len() as u32);
         self.registered_drawables.push(drawable_entry.get_weak());
-    
     }
 
     pub fn unregister_drawable(&mut self, drawable_entry: &mut DrawableEntry)
@@ -368,8 +380,11 @@ impl Graphics
         let image_views =
             create_image_views(&swapchain_images, swapchain.clone());
 
+        let (depth_buffers, _) =
+            create_depth_buffer(self.device.clone(), self.swapchain.clone(), &self.allocator);
+
         let framebuffers =
-            create_framebuffers(&image_views, self.main_render_pass.clone());
+            create_framebuffers(&image_views, self.main_render_pass.clone(), &depth_buffers);
 
         self.swapchain = swapchain;
         self.framebuffers = framebuffers;
@@ -642,50 +657,146 @@ fn create_image_views(images: &Vec<Arc<SwapchainImage>>, swapchain: Arc<Swapchai
     }).unwrap()).collect()
 }
 
-fn create_main_render_pass(device: Arc<Device>, swapchain: Arc<Swapchain>) -> Arc<RenderPass>
+fn create_main_render_pass(device: Arc<Device>, swapchain_format: Format,
+    depth_format: Format) -> Arc<RenderPass>
 {
-    let mut attachments = Vec::new();
-    attachments.push(AttachmentDescription{
-        format: Some(swapchain.image_format()),
-        samples: SampleCount::Sample1,
-        load_op: LoadOp::Clear,
-        store_op: StoreOp::Store,
-        stencil_load_op: LoadOp::DontCare,
-        stencil_store_op: StoreOp::DontCare,
-        initial_layout: ImageLayout::Undefined,
-        final_layout: ImageLayout::PresentSrc,
-        ..Default::default()
-    });
+    let attachments = vec![
+        AttachmentDescription {
+            format: Some(swapchain_format),
+            samples: SampleCount::Sample1,
+            load_op: LoadOp::Clear,
+            store_op: StoreOp::Store,
+            stencil_load_op: LoadOp::DontCare,
+            stencil_store_op: StoreOp::DontCare,
+            initial_layout: ImageLayout::Undefined,
+            final_layout: ImageLayout::PresentSrc,
+            ..Default::default()
+        },
+        AttachmentDescription {
+            format: Some(depth_format),
+            samples: SampleCount::Sample1,
+            load_op: LoadOp::Clear,
+            store_op: StoreOp::Store,
+            stencil_load_op: LoadOp::DontCare,
+            stencil_store_op: StoreOp::DontCare,
+            initial_layout: ImageLayout::Undefined,
+            final_layout: ImageLayout::DepthStencilAttachmentOptimal,
+            ..AttachmentDescription::default()
+        }
+    ];
 
-    let color_attachment_ref = AttachmentReference {
-        attachment: 0,
-        layout: ImageLayout::ColorAttachmentOptimal,
+    let color_attachment_refs = vec![
+        Some(AttachmentReference {
+            attachment: 0,
+            layout: ImageLayout::ColorAttachmentOptimal,
+            ..Default::default()
+        })
+    ];
+
+    let depth_attachment_ref = AttachmentReference {
+        attachment: 1,
+        layout: ImageLayout::DepthStencilAttachmentOptimal,
+        //aspects: ImageAspects::DEPTH,
         ..Default::default()
     };
 
     let mut subpasses = Vec::new();
     subpasses.push(SubpassDescription{
-        color_attachments: vec![Some(color_attachment_ref)],
+        color_attachments: color_attachment_refs,
+        depth_stencil_attachment: Some(depth_attachment_ref),
         ..Default::default()
     });
 
     let create_info = RenderPassCreateInfo {
         attachments: attachments,
         subpasses: subpasses,
+        dependencies: vec![
+            SubpassDependency {
+                src_subpass: None,
+                dst_subpass: Some(0),
+                src_stages: PipelineStages::COLOR_ATTACHMENT_OUTPUT |
+                    PipelineStages::EARLY_FRAGMENT_TESTS,
+                dst_stages: PipelineStages::COLOR_ATTACHMENT_OUTPUT |
+                    PipelineStages::EARLY_FRAGMENT_TESTS,
+                src_access: AccessFlags::empty(),
+                dst_access: AccessFlags::COLOR_ATTACHMENT_WRITE |
+                    AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE,
+                ..Default::default()
+            }
+        ],
         ..Default::default()
     };
     RenderPass::new(device.clone(), create_info).expect("Failed to create render pass!")
 }
 
-fn create_framebuffers(image_views: &Vec<Arc<ImageView<SwapchainImage>>>, render_pass: Arc<RenderPass>) -> Vec<Arc<Framebuffer>>
+fn create_framebuffers(image_views: &Vec<Arc<ImageView<SwapchainImage>>>, render_pass: Arc<RenderPass>, depth_buffers: &Vec<Arc<ImageView<AttachmentImage>>>) -> Vec<Arc<Framebuffer>>
 {
-    image_views.iter().map(|image| {
-        let create_info = FramebufferCreateInfo { 
-            attachments: vec![image.clone()],
-            extent: [0, 0],
-            layers: 1,
-            ..Default::default()
+    image_views.iter().zip(depth_buffers).map(
+        |(image, depth_buffer)|
+        {
+            let create_info = FramebufferCreateInfo { 
+                attachments: vec![image.clone(), depth_buffer.clone()],
+                extent: [0, 0],
+                layers: 1,
+                ..Default::default()
         };
         Framebuffer::new(render_pass.clone(), create_info).unwrap()
     }).collect()
 }
+
+fn select_image_format(device: Arc<Device>, tiling: ImageTiling, features: FormatFeatures, candidates: &[Format])
+    -> Option<Format>
+{
+    for format in candidates
+    {
+        let props = device.physical_device().format_properties(*format).unwrap();
+        if tiling == ImageTiling::Optimal && props.optimal_tiling_features.contains(features) {
+            return Some(*format);
+        }
+        if tiling == ImageTiling::Linear && props.linear_tiling_features.contains(features) {
+            return Some(*format)
+        }
+    }
+    None
+}
+
+fn create_depth_buffer(device: Arc<Device>, swapchain: Arc<Swapchain>,
+    allocator: &StandardMemoryAllocator) -> (Vec<Arc<ImageView<AttachmentImage>>>, Format)
+{
+    let format_candidates = [
+        Format::D16_UNORM,
+        Format::D32_SFLOAT,
+        Format::D16_UNORM_S8_UINT,
+        Format::D24_UNORM_S8_UINT,
+        Format::D32_SFLOAT_S8_UINT,
+    ];
+
+    let format = select_image_format(
+        device.clone(),
+        ImageTiling::Optimal,
+        FormatFeatures::DEPTH_STENCIL_ATTACHMENT,
+        &format_candidates
+    ).unwrap();
+
+    let mut views = Vec::new();
+    views.resize_with(swapchain.image_count() as usize, || {
+        let image = AttachmentImage::with_usage(
+            allocator,
+            swapchain.image_extent(),
+            format,
+            ImageUsage::DEPTH_STENCIL_ATTACHMENT
+        ).unwrap();
+    
+        ImageView::new(
+            image.clone(),
+            ImageViewCreateInfo {
+                format: Some(format),
+                usage: ImageUsage::DEPTH_STENCIL_ATTACHMENT,
+                ..ImageViewCreateInfo::from_image(&image)
+            }
+        ).unwrap()
+    });
+
+    (views, format)
+}
+

@@ -55,8 +55,8 @@ impl TexturedSquare {
             vec![
                 bindable::VertexShader::from_module(vert_textured::load(gfx.get_device()).unwrap()),
                 bindable::FragmentShader::from_module(frag_textured::load(gfx.get_device()).unwrap()),
-                bindable::IndexBuffer::new(&gfx, indices),
-                bindable::VertexBuffer::new(&gfx, vertices),
+                bindable::IndexBuffer::new(gfx, indices),
+                bindable::VertexBuffer::new(gfx, vertices),
                 bindable::Texture::new(gfx, "textures/batako.png", 1, 0),
             ]
         });
