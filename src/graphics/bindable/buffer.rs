@@ -1,11 +1,11 @@
-use std::sync::Arc;
+use std::{sync::Arc, mem::align_of};
 
 use vulkano::{
     buffer::{BufferContents, Buffer, BufferCreateInfo, BufferUsage, Subbuffer},
-    memory::allocator::AllocationCreateInfo, pipeline::{graphics::vertex_input::Vertex, PipelineLayout},
+    memory::{allocator::{AllocationCreateInfo, DeviceLayout}, DeviceAlignment}, pipeline::{graphics::vertex_input::Vertex, PipelineLayout},
     command_buffer::{
-        AutoCommandBufferBuilder, allocator::StandardCommandBufferAllocator, PrimaryAutoCommandBuffer
-    }
+        AutoCommandBufferBuilder, allocator::StandardCommandBufferAllocator, PrimaryAutoCommandBuffer, BufferCopy, CommandBufferUsage, CopyBufferInfo, CopyBufferInfoTyped, PrimaryCommandBufferAbstract
+    }, sync::GpuFuture
 };
 
 use crate::graphics::{pipeline::PipelineBuilder, Graphics};
@@ -44,16 +44,49 @@ impl<T> VertexBuffer<T>
     where
         T: Vertex + BufferContents
     {
-        Arc::new(Self {
-            subbuffer: Buffer::from_iter(gfx.get_allocator(), BufferCreateInfo {
-                usage: BufferUsage::VERTEX_BUFFER,
+        let staging_buffer = Buffer::from_iter(
+            gfx.get_allocator(),
+            BufferCreateInfo {
+                usage: BufferUsage::TRANSFER_SRC,
                 ..Default::default()
             }, AllocationCreateInfo {
                 usage: vulkano::memory::allocator::MemoryUsage::Upload,
                 ..Default::default()
             }, vertices.into_iter()
-            )
-                .expect("Failed to create index buffer.")
+        ).expect("Failed to create vertex buffer.");
+
+        let main_buffer = Buffer::new(
+            gfx.get_allocator(),
+            BufferCreateInfo {
+                usage: BufferUsage::TRANSFER_DST | BufferUsage::VERTEX_BUFFER,
+                ..Default::default()
+            },
+            AllocationCreateInfo {
+                usage: vulkano::memory::allocator::MemoryUsage::DeviceOnly,
+                ..Default::default()
+            },
+            DeviceLayout::from_size_alignment(staging_buffer.size(), align_of::<T>() as u64).unwrap()
+        ).expect("Failed to create index buffer.");
+
+        let main_subbuffer = Subbuffer::new(main_buffer).cast_aligned();
+
+        let mut builder = AutoCommandBufferBuilder::primary(
+            gfx.get_cmd_allocator(),
+            gfx.graphics_queue().queue_family_index(),
+            CommandBufferUsage::OneTimeSubmit
+        ).unwrap();
+
+        builder.copy_buffer(CopyBufferInfoTyped::buffers(staging_buffer, main_subbuffer.clone())).unwrap();
+
+        let fence = builder
+            .build().unwrap()
+            .execute(gfx.graphics_queue()).unwrap()
+            .then_signal_fence_and_flush().unwrap();
+
+        fence.wait(None).unwrap();
+
+        Arc::new(Self {
+            subbuffer: main_subbuffer
         })
     }
 }
@@ -82,16 +115,50 @@ impl IndexBuffer
 {
     pub fn new(gfx: &Graphics, indices: Vec<u32>) -> Arc<Self>
     {
-        Arc::new(Self {
-            subbuffer: Buffer::from_iter(gfx.get_allocator(), BufferCreateInfo {
-                usage: BufferUsage::INDEX_BUFFER,
+        let staging_buffer = Buffer::from_iter(
+            gfx.get_allocator(),
+            BufferCreateInfo {
+                usage: BufferUsage::TRANSFER_SRC,
                 ..Default::default()
-            }, AllocationCreateInfo {
+            },
+            AllocationCreateInfo {
                 usage: vulkano::memory::allocator::MemoryUsage::Upload,
                 ..Default::default()
             }, indices.into_iter()
-            )
-                .expect("Failed to create index buffer.")
+        ).expect("Failed to create index buffer.");
+
+        let main_buffer = Buffer::new(
+            gfx.get_allocator(),
+            BufferCreateInfo {
+                usage: BufferUsage::TRANSFER_DST | BufferUsage::INDEX_BUFFER,
+                ..Default::default()
+            },
+            AllocationCreateInfo {
+                usage: vulkano::memory::allocator::MemoryUsage::DeviceOnly,
+                ..Default::default()
+            },
+            DeviceLayout::from_size_alignment(staging_buffer.size(), align_of::<u32>() as u64).unwrap()
+        ).expect("Failed to create index buffer.");
+
+        let main_subbuffer = Subbuffer::new(main_buffer).cast_aligned();
+
+        let mut builder = AutoCommandBufferBuilder::primary(
+            gfx.get_cmd_allocator(),
+            gfx.graphics_queue().queue_family_index(),
+            CommandBufferUsage::OneTimeSubmit
+        ).unwrap();
+
+        builder.copy_buffer(CopyBufferInfoTyped::buffers(staging_buffer, main_subbuffer.clone())).unwrap();
+
+        let fence = builder
+            .build().unwrap()
+            .execute(gfx.graphics_queue()).unwrap()
+            .then_signal_fence_and_flush().unwrap();
+
+        fence.wait(None).unwrap();
+
+        Arc::new(Self {
+            subbuffer: main_subbuffer
         })
     }
 }

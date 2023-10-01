@@ -56,7 +56,7 @@ use winit::{
 
 use self::drawable::{DrawableSharedPart, GenericDrawable, Drawable, DrawableEntry};
 
-const IN_FLIGHT_COUNT: usize = 3;
+const IN_FLIGHT_COUNT: usize = 2;
 
 // If true MAILBOX will always be used if available.
 // If false MAILBOX will be used only if FIFO is not available
