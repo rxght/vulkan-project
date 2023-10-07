@@ -8,11 +8,13 @@ mod buffer;
 mod shader;
 mod uniform;
 mod texture;
+mod push_constant;
 
 pub use buffer::*;
 pub use shader::*;
 pub use uniform::*;
 pub use texture::*;
+pub use push_constant::*;
 
 pub trait Bindable
 {

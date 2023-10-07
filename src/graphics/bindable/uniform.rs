@@ -1,4 +1,4 @@
-use std::{sync::Arc, mem::size_of, collections::BTreeMap};
+use std::{sync::{Arc, Mutex}, mem::size_of, collections::BTreeMap, ptr::{addr_of, addr_of_mut}};
 
 use vulkano::{
     buffer::{BufferContents, Buffer, BufferCreateInfo, BufferUsage, Subbuffer, BufferError, subbuffer::BufferWriteGuard},
@@ -15,26 +15,28 @@ pub struct UniformBuffer<T>
     where
     T: BufferContents
 {
-    pub subbuffer: Subbuffer<T>,
+    subbuffers: Vec<Subbuffer<T>>,
     layout: Arc<DescriptorSetLayout>,
-    descriptor_set: Arc<PersistentDescriptorSet>,
+    descriptor_sets: Vec<Arc<PersistentDescriptorSet>>,
+    pub data: Mutex<T>,
 }
 
 impl<T> UniformBuffer<T>
     where
-    T: BufferContents
+    T: BufferContents + Clone
 {
     pub fn new(gfx: &Graphics, binding: u32, data: T, stages: ShaderStages) -> Arc<Self>
     {
-        let subbuffer = Buffer::from_data(gfx.get_allocator(), BufferCreateInfo{
-            sharing: Sharing::Exclusive,
-            usage: BufferUsage::UNIFORM_BUFFER,
-            ..Default::default()
-        }, AllocationCreateInfo {
-            usage: MemoryUsage::Upload,
-            ..Default::default()
-        }, data)
-        .unwrap();
+        let subbuffers: Vec<Subbuffer<T>> = (0..gfx.get_in_flight_count()).into_iter().map(|_| {
+            Buffer::new_sized::<T>(gfx.get_allocator(), BufferCreateInfo{
+                sharing: Sharing::Exclusive,
+                usage: BufferUsage::UNIFORM_BUFFER,
+                ..Default::default()
+            }, AllocationCreateInfo {
+                usage: MemoryUsage::Upload,
+                ..Default::default()
+            }).unwrap()
+        }).collect();
 
         let layout = DescriptorSetLayout::new(
             gfx.get_device(), DescriptorSetLayoutCreateInfo {
@@ -50,33 +52,44 @@ impl<T> UniformBuffer<T>
             }
         ).unwrap();
 
-        let set = PersistentDescriptorSet::new(
-            gfx.get_descriptor_set_allocator(),
-            layout.clone(),
-            [WriteDescriptorSet::buffer_with_range(binding, subbuffer.clone(), 0..size_of::<T>() as u64)]
-        ).unwrap();
+        let mut sets = Vec::with_capacity(gfx.get_in_flight_count());
+        
+        for set in subbuffers.iter().map(|subbuffer| {
+            PersistentDescriptorSet::new(
+                gfx.get_descriptor_set_allocator(),
+                layout.clone(),
+                [WriteDescriptorSet::buffer_with_range(binding, subbuffer.clone(), 0..size_of::<T>() as u64)]
+            ).unwrap()
+        }) {
+            sets.push(set);
+        }
 
         Arc::new(Self {
-            subbuffer: subbuffer,
+            subbuffers: subbuffers,
             layout: layout,
-            descriptor_set: set,
+            descriptor_sets: sets,
+            data: Mutex::new(data),
         })
     }
 }
 
 impl<T> Bindable for UniformBuffer<T>
     where
-    T: BufferContents
+    T: BufferContents + Clone
 {
     fn bind_to_pipeline(&self, builder: &mut PipelineBuilder,
         _index_count: &mut u32)
     {
         builder.desriptor_set_layouts.push(self.layout.clone());
     }
-    fn bind(&self, _gfx: &Graphics,
+    fn bind(&self, gfx: &Graphics,
         builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer, StandardCommandBufferAllocator>,
         pipeline_layout: Arc<PipelineLayout>
     ) {
-        builder.bind_descriptor_sets(vulkano::pipeline::PipelineBindPoint::Graphics, pipeline_layout.clone(), 0, self.descriptor_set.clone());
+        let in_fligt_index = gfx.get_in_flight_index();
+
+        *self.subbuffers[in_fligt_index].write().unwrap() = self.data.lock().unwrap().clone();
+
+        builder.bind_descriptor_sets(vulkano::pipeline::PipelineBindPoint::Graphics, pipeline_layout.clone(), 0, self.descriptor_sets[in_fligt_index].clone());
     }
 }

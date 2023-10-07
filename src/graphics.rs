@@ -7,12 +7,16 @@ pub mod shaders;
 use std::collections::HashMap;
 use std::cmp::min;
 use std::sync::{Arc, Weak};
+use cgmath::SquareMatrix;
+use glium::program::ShaderStage;
+use vulkano::buffer::BufferContents;
 use vulkano::command_buffer::{PrimaryAutoCommandBuffer, RenderPassBeginInfo};
 use vulkano::command_buffer::allocator::StandardCommandBufferAlloc;
 use vulkano::descriptor_set::allocator::StandardDescriptorSetAllocator;
 use vulkano::format::{ClearValue, FormatFeatures};
 use vulkano::image::{AttachmentImage, ImageTiling, ImageAccess};
 use vulkano::render_pass::SubpassDependency;
+use vulkano::shader::ShaderStages;
 use vulkano::shader::spirv::AccessQualifier;
 use vulkano::sync::{PipelineStages, AccessFlags};
 use vulkano::{
@@ -54,6 +58,9 @@ use winit::{
     window::{Window, WindowBuilder},
 };
 
+use crate::graphics::bindable::UniformBuffer;
+
+use self::bindable::Bindable;
 use self::drawable::{DrawableSharedPart, GenericDrawable, Drawable, DrawableEntry};
 
 const IN_FLIGHT_COUNT: usize = 2;
@@ -111,6 +118,20 @@ impl QueueIndices {
     }
 }
 
+#[derive(BufferContents)]
+#[repr(C)]
+struct VsConstants
+{
+    pub view_and_projection_matrix: [[f32; 4]; 4],
+}
+
+#[derive(BufferContents)]
+#[repr(C)]
+struct FsConstants
+{
+    pub placeholder_color: f32,
+}
+
 pub struct Graphics
 {
     //library: Arc<VulkanLibrary>,
@@ -134,6 +155,7 @@ pub struct Graphics
     // drawable stuff
     shared_data_map: HashMap<u32, Weak<DrawableSharedPart>>,
     registered_drawables: Vec<Weak<GenericDrawable>>,
+    global_bindables: Vec<Arc<dyn bindable::Bindable>>,
 
     main_command_buffer: Option<PrimaryAutoCommandBuffer<StandardCommandBufferAlloc>>,
     futures: Vec<Option<Box<dyn GpuFuture>>>,
@@ -190,33 +212,45 @@ impl Graphics
         let mut futures = Vec::with_capacity(IN_FLIGHT_COUNT);
         futures.resize_with(IN_FLIGHT_COUNT, || Some(sync::now(device.clone()).boxed()));
 
+        let mut gfx = Graphics {
+            //library: library,
+            //instance: instance,
+            //debug_messenger: None,
+            surface: surface,
+            //physical_device: physical_device,
+            device: device,
+            queues: queues,
+
+            allocator: memory_allocator,
+            cmd_allocator: cmd_allocator,
+            descriptor_set_allocator: descriptor_set_allocator,
+            
+            swapchain: swapchain,
+            //swapchain_images: swapchain_images,
+            main_render_pass: main_render_pass,
+            framebuffers: framebuffers,
+
+            shared_data_map: HashMap::new(),
+            registered_drawables: Vec::new(),
+            global_bindables: Vec::new(),
+
+
+
+            main_command_buffer: None,
+            futures: futures,
+            inflight_index: 0,
+            framebuffer_index: 0,
+        };
+
+        //let mut globals: Vec<Arc<dyn Bindable>> = vec![
+        //    UniformBuffer::new(&gfx, 0, VsConstants{ view_and_projection_matrix: cgmath::Matrix4::identity().into() }, ShaderStages::VERTEX),
+        //    UniformBuffer::new(&gfx, 0, VsConstants{ view_and_projection_matrix: cgmath::Matrix4::identity().into() }, ShaderStages::FRAGMENT),
+        //];
+
+        //gfx.get_global_bindables().append(&mut globals);
+
         (
-            Graphics {
-                //library: library,
-                //instance: instance,
-                //debug_messenger: None,
-                surface: surface,
-                //physical_device: physical_device,
-                device: device,
-                queues: queues,
-
-                allocator: memory_allocator,
-                cmd_allocator: cmd_allocator,
-                descriptor_set_allocator: descriptor_set_allocator,
-                
-                swapchain: swapchain,
-                //swapchain_images: swapchain_images,
-                main_render_pass: main_render_pass,
-                framebuffers: framebuffers,
-
-                shared_data_map: HashMap::new(),
-                registered_drawables: Vec::new(),
-
-                main_command_buffer: None,
-                futures: futures,
-                inflight_index: 0,
-                framebuffer_index: 0,
-            },
+            gfx,
             event_loop
         )
     }
@@ -230,6 +264,10 @@ impl Graphics
     pub fn get_window(&self) -> &Window { self.surface.object().unwrap().downcast_ref().unwrap() }
     pub fn graphics_queue(&self) -> Arc<Queue> { self.queues.graphics_queue.clone().unwrap() }
     pub fn get_cmd_allocator(&self) -> &StandardCommandBufferAllocator { &self.cmd_allocator }
+    pub const fn get_in_flight_count(&self) -> usize { IN_FLIGHT_COUNT }
+    pub fn get_in_flight_index(&self) -> usize { self.inflight_index as usize }
+
+    fn get_global_bindables(&mut self) -> &mut Vec<Arc<dyn Bindable>> { &mut self.global_bindables }
 
     pub fn recreate_command_buffer(&mut self)
     {

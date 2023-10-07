@@ -1,4 +1,6 @@
 use std::sync::Arc;
+use cgmath::Deg;
+use cgmath::Point3;
 use cgmath::Rad;
 use cgmath::Vector3;
 use vulkano::{sync::event::Event, buffer::BufferContents, pipeline::graphics::vertex_input::Vertex, format};
@@ -21,16 +23,25 @@ pub struct App
     start_time: std::time::Instant,
     textest: drawables::textest::TexturedSquare,
     textest2: drawables::textest::TexturedSquare,
+    vp: cgmath::Matrix4<f32>,
 }
 
 impl App
 {
     pub fn new(gfx: &mut Graphics) -> Self
     {
+        let window_extent = gfx.get_window().inner_size();
+        let aspect = window_extent.width as f32 / window_extent.height as f32;
         Self {
             start_time: std::time::Instant::now(),
             textest: drawables::textest::TexturedSquare::new(gfx, true),
-            textest2: drawables::textest::TexturedSquare::new(gfx, true)
+            textest2: drawables::textest::TexturedSquare::new(gfx, true),
+            vp: cgmath::perspective(Deg(70.0), aspect, 0.2, 10.0) *
+                cgmath::Matrix4::look_at_rh(
+                    Point3{x: 0.0, y: 0.8, z: 1.5},
+                    Point3{x: 0.0, y: 0.0, z: 0.0},
+                    Vector3{x: 0.0, y: -1.0, z: 0.0}
+                ),
         }
     }
     
@@ -43,12 +54,9 @@ impl App
     {
         let time = (std::time::Instant::now() - self.start_time).as_secs_f32();
 
-        unsafe {
-            let ubo = self.textest.uniform.subbuffer.mapped_ptr().unwrap().cast::<Ubo>().as_mut();
-            ubo.model = cgmath::Matrix4::from_angle_y(Rad(time.sin())).into();
+        self.textest.pc.data.lock().unwrap().mvp = (self.vp * cgmath::Matrix4::from_angle_y(Rad(time.sin()))).into();
 
-            let ubo = self.textest2.uniform.subbuffer.mapped_ptr().unwrap().cast::<Ubo>().as_mut();
-            ubo.model = cgmath::Matrix4::from_translation(Vector3 { x: 0.0, y: 0.0, z: (time*2.0).sin()/4.0 }).into();
-        }
+        self.textest2.pc.data.lock().unwrap().mvp = (self.vp * cgmath::Matrix4::from_translation(Vector3 { x: 0.0, y: 0.0, z: (time*2.0).sin()/4.0 })).into();
+        
     }
 }
