@@ -11,6 +11,13 @@ use vulkano::{
 use crate::graphics::{pipeline::PipelineBuilder, Graphics};
 
 use super::Bindable;
+
+struct UniformBufferMutablePart<T>
+{
+    pub subbuffer_validity: Vec<bool>,
+    pub staging_buffer: T,
+}
+
 pub struct UniformBuffer<T> 
     where
     T: BufferContents
@@ -18,6 +25,8 @@ pub struct UniformBuffer<T>
     subbuffers: Vec<Subbuffer<T>>,
     layout: Arc<DescriptorSetLayout>,
     descriptor_sets: Vec<Arc<PersistentDescriptorSet>>,
+
+    mutable_part: Mutex<UniformBufferMutablePart<T>>,
 }
 
 impl<T> UniformBuffer<T>
@@ -74,16 +83,25 @@ impl<T> UniformBuffer<T>
             subbuffers: subbuffers,
             layout: layout,
             descriptor_sets: sets,
+
+            mutable_part: Mutex::new( UniformBufferMutablePart{
+                subbuffer_validity: vec![true; gfx.get_in_flight_count()],
+                staging_buffer: data,
+            }),
         })
     }
 
-    pub fn write(&self, gfx: &Graphics, writing_function: impl FnOnce(&mut T)) {
+    pub fn access_data(&self, accessing_function: impl FnOnce(&mut T)) {
 
-        let in_fligt_index = gfx.get_in_flight_index();
-
-        match self.subbuffers[in_fligt_index].write() {
-            Ok(mut guard) => {writing_function(&mut *guard)},
-            Err(e) => {println!("unifom write error: {e}")},
+        match self.mutable_part.lock() {
+            Ok(mut mutex_guard) => {
+                // invalidate all subbuffers
+                mutex_guard.subbuffer_validity.iter_mut().for_each(|p| *p = false );
+                accessing_function(&mut mutex_guard.staging_buffer);
+            }
+            Err(e) => {
+                println!("Uniform buffer mutex could not be locked! {e}");
+            }
         }
     }
 }
@@ -101,8 +119,24 @@ impl<T> Bindable for UniformBuffer<T>
         builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer, StandardCommandBufferAllocator>,
         pipeline_layout: Arc<PipelineLayout>
     ) {
-        let in_fligt_index = gfx.get_in_flight_index();
+        let in_flight_index = gfx.get_in_flight_index();
 
-        builder.bind_descriptor_sets(vulkano::pipeline::PipelineBindPoint::Graphics, pipeline_layout.clone(), 0, self.descriptor_sets[in_fligt_index].clone());
+        match self.mutable_part.lock() {
+            Ok(mut mutex_guard) => {
+
+                let valid = mutex_guard.subbuffer_validity[in_flight_index];
+                if !valid {
+                    if let Ok(mut buffer) = self.subbuffers[in_flight_index].write() {
+                        *buffer = mutex_guard.staging_buffer.clone();
+                        mutex_guard.subbuffer_validity[in_flight_index] = true;
+                    }
+                }
+            }
+            Err(e) => {
+                println!("Uniform buffer mutex could not be locked! {e}");
+            }
+        }
+
+        builder.bind_descriptor_sets(vulkano::pipeline::PipelineBindPoint::Graphics, pipeline_layout.clone(), 0, self.descriptor_sets[in_flight_index].clone());
     }
 }

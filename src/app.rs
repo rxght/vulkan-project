@@ -21,8 +21,7 @@ mod drawables {
 pub struct App
 {
     start_time: std::time::Instant,
-    textest: drawables::textest::TexturedSquare,
-    textest2: drawables::textest::TexturedSquare,
+    textured_square: drawables::textest::TexturedSquare,
 }
 
 impl App
@@ -33,8 +32,7 @@ impl App
         let aspect = window_extent.width as f32 / window_extent.height as f32;
         Self {
             start_time: std::time::Instant::now(),
-            textest: drawables::textest::TexturedSquare::new(gfx, true),
-            textest2: drawables::textest::TexturedSquare::new(gfx, true),
+            textured_square: drawables::textest::TexturedSquare::new(gfx, true),
         }
     }
     
@@ -43,13 +41,12 @@ impl App
         
     }
 
-    pub fn run(&mut self)
+    pub fn run(&mut self, gfx: &Graphics)
     {
         let time = (std::time::Instant::now() - self.start_time).as_secs_f32();
 
-        self.textest.pc.data.lock().unwrap().model = cgmath::Matrix4::from_angle_y(Rad(time.sin())).into();
-
-        self.textest2.pc.data.lock().unwrap().model = cgmath::Matrix4::from_translation(Vector3 { x: 0.0, y: 0.0, z: (time*2.0).sin()/4.0 }).into();
-        
+        self.textured_square.pc.access_data(|data| {
+            data.model = cgmath::Matrix4::from_angle_y(Rad((time).sin())).into()
+        });
     }
 }

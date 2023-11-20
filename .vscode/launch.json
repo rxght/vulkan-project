@@ -7,15 +7,15 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug executable 'vulkan-project'",
+            "name": "Debug executable 'batako'",
             "cargo": {
                 "args": [
                     "build",
-                    "--bin=vulkan-project",
-                    "--package=vulkan-project"
+                    "--bin=batako",
+                    "--package=batako"
                 ],
                 "filter": {
-                    "name": "vulkan-project",
+                    "name": "batako",
                     "kind": "bin"
                 }
             },
@@ -25,16 +25,16 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug unit tests in executable 'vulkan-project'",
+            "name": "Debug unit tests in executable 'batako'",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
-                    "--bin=vulkan-project",
-                    "--package=vulkan-project"
+                    "--bin=batako",
+                    "--package=batako"
                 ],
                 "filter": {
-                    "name": "vulkan-project",
+                    "name": "batako",
                     "kind": "bin"
                 }
             },

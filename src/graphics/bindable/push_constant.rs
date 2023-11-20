@@ -17,7 +17,7 @@ pub struct PushConstant<T>
     T: BufferContents
 {
     push_constant_range: PushConstantRange,
-    pub data: Mutex<T>,
+    data: Mutex<T>,
 }
 
 impl<T> PushConstant<T>
@@ -38,6 +38,14 @@ impl<T> PushConstant<T>
                 data: Mutex::new(data),
             }
         )
+    }
+
+    pub fn access_data(&self, accessing_function: impl FnOnce(&mut T))
+    {
+        match self.data.lock() {
+            Ok(mut guard) => { accessing_function(&mut *guard)},
+            Err(e) => println!("Push Constant access failed!")
+        }
     }
 }
 

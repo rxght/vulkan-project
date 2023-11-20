@@ -51,7 +51,7 @@ fn main()
                 }
             },
             Event::RedrawEventsCleared => {
-                app.run();
+                app.run(&gfx);
                 if !is_minimized {
                     gfx.draw_frame()
                 }
