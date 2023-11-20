@@ -5,25 +5,26 @@ use vulkano::{buffer::BufferContents, pipeline::graphics::vertex_input::Vertex, 
 
 use crate::graphics::{drawable::{GenericDrawable, DrawableEntry}, Graphics, bindable::{self, UniformBuffer, PushConstant}, shaders::{vert_first, frag_first, vert_textured, frag_textured}};
 
-pub use vert_textured::Ubo;
+pub use vert_textured::Pc;
+pub use vert_textured::GlobalUbo;
 
 pub struct TexturedSquare
 {
     entry: DrawableEntry,
-    pub pc: Arc<PushConstant<Ubo>>,
+    pub pc: Arc<PushConstant<Pc>>,
 }
 
 impl TexturedSquare {
     pub fn new(gfx: &mut Graphics, create_registered: bool) -> Self
     {
 
-        let pc = PushConstant::new(gfx, 0, Ubo {
-            mvp: cgmath::Matrix4::identity().into(),
+        let pc = PushConstant::new(gfx, 0, Pc {
+            model: cgmath::Matrix4::identity().into(),
         }, ShaderStages::VERTEX);
 
         let mut entry = GenericDrawable::new(&gfx, 0, || {
             vec![
-                pc.clone()
+                pc.clone(),
             ]
         }, || {
             #[derive(BufferContents, Vertex)]
@@ -50,7 +51,7 @@ impl TexturedSquare {
                 bindable::FragmentShader::from_module(frag_textured::load(gfx.get_device()).unwrap()),
                 bindable::IndexBuffer::new(gfx, indices),
                 bindable::VertexBuffer::new(gfx, vertices),
-                bindable::Texture::new(gfx, "textures/batako.png", 0, 0),
+                bindable::Texture::new(gfx, "textures/batako.png", 1, 0),
             ]
         });
 

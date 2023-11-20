@@ -44,7 +44,7 @@ impl PipelineBuilder
 {
     pub fn new(gfx: &Graphics) -> Self
     {
-        Self {
+        let mut builder = Self {
             subpass: Subpass::from(gfx.get_main_render_pass(), 0).unwrap(),
             vertex_buffer_description: None,
             input_assembly_state: InputAssemblyState::new(),
@@ -65,7 +65,14 @@ impl PipelineBuilder
 
             desriptor_set_layouts: Vec::new(),
             push_constant_ranges: Vec::new(),
-        }
+        };
+
+        let _i = &mut 0;
+        gfx.get_global_bindables().iter().for_each(|p| {
+            p.bind_to_pipeline(&mut builder, _i)
+        });
+
+        builder
     }
 
     pub fn build(self, device: Arc<Device>) -> (Arc<GraphicsPipeline>, Arc<PipelineLayout>)

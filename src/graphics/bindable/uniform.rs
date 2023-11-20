@@ -18,7 +18,6 @@ pub struct UniformBuffer<T>
     subbuffers: Vec<Subbuffer<T>>,
     layout: Arc<DescriptorSetLayout>,
     descriptor_sets: Vec<Arc<PersistentDescriptorSet>>,
-    pub data: Mutex<T>,
 }
 
 impl<T> UniformBuffer<T>
@@ -37,6 +36,13 @@ impl<T> UniformBuffer<T>
                 ..Default::default()
             }).unwrap()
         }).collect();
+
+        subbuffers.iter().for_each(|p| {
+            match p.write() {
+                Ok(mut guard) => *guard = data.clone(),
+                Err(e) => println!("error when writing initial value to uniform buffer: {e}"),
+            }
+        });
 
         let layout = DescriptorSetLayout::new(
             gfx.get_device(), DescriptorSetLayoutCreateInfo {
@@ -68,8 +74,17 @@ impl<T> UniformBuffer<T>
             subbuffers: subbuffers,
             layout: layout,
             descriptor_sets: sets,
-            data: Mutex::new(data),
         })
+    }
+
+    pub fn write(&self, gfx: &Graphics, writing_function: impl FnOnce(&mut T)) {
+
+        let in_fligt_index = gfx.get_in_flight_index();
+
+        match self.subbuffers[in_fligt_index].write() {
+            Ok(mut guard) => {writing_function(&mut *guard)},
+            Err(e) => {println!("unifom write error: {e}")},
+        }
     }
 }
 
@@ -87,8 +102,6 @@ impl<T> Bindable for UniformBuffer<T>
         pipeline_layout: Arc<PipelineLayout>
     ) {
         let in_fligt_index = gfx.get_in_flight_index();
-
-        *self.subbuffers[in_fligt_index].write().unwrap() = self.data.lock().unwrap().clone();
 
         builder.bind_descriptor_sets(vulkano::pipeline::PipelineBindPoint::Graphics, pipeline_layout.clone(), 0, self.descriptor_sets[in_fligt_index].clone());
     }

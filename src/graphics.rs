@@ -7,6 +7,7 @@ pub mod shaders;
 use std::collections::HashMap;
 use std::cmp::min;
 use std::sync::{Arc, Weak};
+use bytemuck::Zeroable;
 use cgmath::SquareMatrix;
 use glium::program::ShaderStage;
 use vulkano::buffer::BufferContents;
@@ -59,6 +60,7 @@ use winit::{
 };
 
 use crate::graphics::bindable::UniformBuffer;
+use crate::graphics::shaders::vert_textured;
 
 use self::bindable::Bindable;
 use self::drawable::{DrawableSharedPart, GenericDrawable, Drawable, DrawableEntry};
@@ -212,6 +214,7 @@ impl Graphics
         let mut futures = Vec::with_capacity(IN_FLIGHT_COUNT);
         futures.resize_with(IN_FLIGHT_COUNT, || Some(sync::now(device.clone()).boxed()));
 
+        #[allow(unused_mut)]
         let mut gfx = Graphics {
             //library: library,
             //instance: instance,
@@ -242,12 +245,28 @@ impl Graphics
             framebuffer_index: 0,
         };
 
-        //let mut globals: Vec<Arc<dyn Bindable>> = vec![
-        //    UniformBuffer::new(&gfx, 0, VsConstants{ view_and_projection_matrix: cgmath::Matrix4::identity().into() }, ShaderStages::VERTEX),
-        //    UniformBuffer::new(&gfx, 0, VsConstants{ view_and_projection_matrix: cgmath::Matrix4::identity().into() }, ShaderStages::FRAGMENT),
-        //];
+        // The global uniform buffer object contains a single matrix describing the view and projection matrix
+        #[derive(Clone, Copy, Zeroable, bytemuck::Pod)]
+        #[repr(C)]
+        struct GlobalUbo {
+            view_projection: [[f32; 4]; 4],
+        }
 
-        //gfx.get_global_bindables().append(&mut globals);
+        // temporary refactoring to isolate view and projection matrices from model matrix
+        let window_extent = gfx.get_window().inner_size();
+        let aspect = window_extent.width as f32 / window_extent.height as f32;
+        let global_ubo = UniformBuffer::new(&gfx, 0, GlobalUbo {
+            view_projection: (
+                cgmath::perspective(cgmath::Deg(70.0), aspect, 0.2, 10.0) *
+                cgmath::Matrix4::look_at_rh(
+                    cgmath::Point3{x: 0.0, y: 0.8, z: 1.5},
+                    cgmath::Point3{x: 0.0, y: 0.0, z: 0.0},
+                    cgmath::Vector3{x: 0.0, y: -1.0, z: 0.0}
+                )
+            ).into(),
+        }, ShaderStages::VERTEX);
+
+        gfx.global_bindables.push(global_ubo);
 
         (
             gfx,
@@ -266,8 +285,9 @@ impl Graphics
     pub fn get_cmd_allocator(&self) -> &StandardCommandBufferAllocator { &self.cmd_allocator }
     pub const fn get_in_flight_count(&self) -> usize { IN_FLIGHT_COUNT }
     pub fn get_in_flight_index(&self) -> usize { self.inflight_index as usize }
+    fn get_global_bindables(&self) -> & Vec<Arc<dyn Bindable>> { &self.global_bindables }
 
-    fn get_global_bindables(&mut self) -> &mut Vec<Arc<dyn Bindable>> { &mut self.global_bindables }
+    fn get_global_bindables_mut(&mut self) -> &mut Vec<Arc<dyn Bindable>> { &mut self.global_bindables }
 
     pub fn recreate_command_buffer(&mut self)
     {
@@ -306,10 +326,17 @@ impl Graphics
             {
                 bindable.bind(&self, &mut builder, drawable.get_pipeline_layout());
             }
+
             for bindable in drawable.get_shared_bindables()
             {
                 bindable.bind(&self, &mut builder, drawable.get_pipeline_layout());
             }
+
+            for bindable in &self.global_bindables
+            {
+                bindable.bind(&self, &mut builder, drawable.get_pipeline_layout());
+            }
+
             builder.bind_pipeline_graphics(drawable.get_pipeline());
             builder.draw_indexed(drawable.get_index_count(), 1, 0, 0, 0).unwrap();
         }

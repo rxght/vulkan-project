@@ -10,7 +10,7 @@ use crate::graphics::bindable;
 use crate::graphics::drawable::{DrawableEntry, self};
 
 use self::drawables::*;
-use self::drawables::textest::Ubo;
+use self::drawables::textest::Pc;
 
 mod drawables {
     pub mod triangle;
@@ -23,7 +23,6 @@ pub struct App
     start_time: std::time::Instant,
     textest: drawables::textest::TexturedSquare,
     textest2: drawables::textest::TexturedSquare,
-    vp: cgmath::Matrix4<f32>,
 }
 
 impl App
@@ -36,12 +35,6 @@ impl App
             start_time: std::time::Instant::now(),
             textest: drawables::textest::TexturedSquare::new(gfx, true),
             textest2: drawables::textest::TexturedSquare::new(gfx, true),
-            vp: cgmath::perspective(Deg(70.0), aspect, 0.2, 10.0) *
-                cgmath::Matrix4::look_at_rh(
-                    Point3{x: 0.0, y: 0.8, z: 1.5},
-                    Point3{x: 0.0, y: 0.0, z: 0.0},
-                    Vector3{x: 0.0, y: -1.0, z: 0.0}
-                ),
         }
     }
     
@@ -54,9 +47,9 @@ impl App
     {
         let time = (std::time::Instant::now() - self.start_time).as_secs_f32();
 
-        self.textest.pc.data.lock().unwrap().mvp = (self.vp * cgmath::Matrix4::from_angle_y(Rad(time.sin()))).into();
+        self.textest.pc.data.lock().unwrap().model = cgmath::Matrix4::from_angle_y(Rad(time.sin())).into();
 
-        self.textest2.pc.data.lock().unwrap().mvp = (self.vp * cgmath::Matrix4::from_translation(Vector3 { x: 0.0, y: 0.0, z: (time*2.0).sin()/4.0 })).into();
+        self.textest2.pc.data.lock().unwrap().model = cgmath::Matrix4::from_translation(Vector3 { x: 0.0, y: 0.0, z: (time*2.0).sin()/4.0 }).into();
         
     }
 }
