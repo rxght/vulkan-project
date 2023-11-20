@@ -1,5 +1,5 @@
 # Batako Engine
 
 > ### Todo:
-> * Store shader data such as the projection and view matrices in the graphics object.
-> * Add some form of importing.
+> * Look over and clean up existing code. (PushConstant class especially needs some work)
+> * Add some form of importing. (FBX seems nice but maybe a bit complicated)
