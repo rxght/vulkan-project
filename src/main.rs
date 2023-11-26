@@ -2,9 +2,11 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
 
+use std::{borrow::BorrowMut, sync::Arc};
+
 use app::App;
 use graphics::Graphics;
-use winit::{event::{Event, WindowEvent, DeviceEvent, DeviceId}, event_loop::ControlFlow};
+use winit::{event::{Event, WindowEvent, DeviceEvent, DeviceId}, event_loop::ControlFlow, window::Window};
 
 #[path ="app.rs"]
 mod app;
@@ -13,11 +15,14 @@ mod input;
 
 fn main()
 {
+    // initialize subsystems
     let (mut gfx, event_loop) = Graphics::new();
-    let app = App::new(&mut gfx);
     let input = input::Input::new(gfx.get_window());
 
-    let mut is_minimized = false;
+    // initialize app and pass it a reference to each subsystem
+    let app = App::new(&mut gfx, input.clone());
+
+    let mut minimized = false;
 
     event_loop.run(move 
         |event, window_target, control_flow|
@@ -42,30 +47,30 @@ fn main()
                 event: WindowEvent::Resized(_),
                 ..
             } => {
-                let window = gfx.get_window();
-                let extent = window.inner_size();
-
-                let min = window.is_minimized().unwrap_or(false);
-                let zero_area = extent.width == 0 || extent.height == 0;
-
-                if min || zero_area {
-                    is_minimized = true;
-                }
-                else {
-                    is_minimized = false;
-                }
-
-                if !is_minimized {
+                minimized = is_minimized(gfx.get_window());
+                
+                if !minimized {
                     app.resize_callback();
                 }
             },
             Event::RedrawEventsCleared => {
                 app.run(&gfx);
-                if !is_minimized {
+                if !minimized {
                     gfx.draw_frame()
                 }
+                input.clear_presses();
             },
             _ => (),
         }
     });
+}
+
+fn is_minimized(window: Arc<Window>) -> bool
+{
+    let extent = window.inner_size();
+
+    let min = window.is_minimized().unwrap_or(false);
+    let zero_area = extent.width == 0 || extent.height == 0;
+
+    min || zero_area
 }

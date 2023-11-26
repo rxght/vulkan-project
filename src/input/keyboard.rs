@@ -1,66 +1,53 @@
-use std::sync::{atomic::{Ordering, AtomicBool}, Arc};
+use std::{sync::{atomic::{Ordering, AtomicBool}, Arc, RwLock}, collections::HashMap};
 
 use winit::event::{Event, ElementState, WindowEvent, DeviceEvent, KeyboardInput, VirtualKeyCode};
+
+use super::ButtonState;
 
 const KEY_COUNT: usize = 128;
 
 pub struct Keyboard
 {
-    key_states: [AtomicBool; KEY_COUNT],
-    pub raw_input: AtomicBool,
+    key_map: RwLock<HashMap<u32, ButtonState>>,
 }
 
 impl Keyboard
 {
-    #[inline]
-    fn set_key_state(&self, keycode: u32, value: bool)
-    {
-        self.key_states[keycode as usize].store(value, Ordering::Relaxed);
-    }
-
-    #[inline]
     pub fn is_key_pressed(&self, keycode: u32) -> bool
     {
-       self.key_states[keycode as usize].load(Ordering::Acquire)
+        match self.get_key_state(keycode) {
+            Some(ButtonState::Pressed(_)) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_key_held(&self, keycode: u32) -> Option<std::time::Duration>
+    {
+        match self.get_key_state(keycode) {
+            Some(ButtonState::Held(start)) => Some(std::time::Instant::now() - start),
+            _ => None,
+        }
+    }
+
+    pub fn get_key_state(&self, keycode: u32) -> Option<ButtonState>
+    {
+        self.key_map.read().ok()?.get(&keycode).cloned()
     }
 
     pub fn new() -> (Self, fn(&Keyboard, &Event<'_, ()>) -> bool)
     {
         (
             Self {
-                key_states: [false; KEY_COUNT].map(|p| AtomicBool::new(p)),
-                raw_input: AtomicBool::new(false),
+                key_map: RwLock::new(HashMap::new()),
             },
-            Keyboard::handle_event,
+            Keyboard::_event_handler,
         )
     }
 
-    fn handle_event(&self, event: &Event<'_, ()>) -> bool
+    fn _event_handler(&self, event: &Event<'_, ()>) -> bool
     {
         match event
         {
-            Event::DeviceEvent{
-                event,
-                device_id
-            } => {
-
-                match event
-                {
-                    DeviceEvent::Key(input) => {
-
-                        if !self.raw_input.load(Ordering::Acquire) {
-                            return true;
-                        }
-
-                        self.set_key_state(input.scancode, input.state == ElementState::Pressed);
-                        return true;
-                    },
-                    DeviceEvent::Text{..} => {
-                        return true;
-                    }  
-                    _ => return false,
-                }
-            },
             Event::WindowEvent{
                 event,
                 ..
@@ -70,40 +57,55 @@ impl Keyboard
                     return true;
                 }
 
-                if let WindowEvent::KeyboardInput{
-                    input: KeyboardInput{ 
-                        state: ElementState::Pressed,
-                        virtual_keycode: Some(VirtualKeyCode::Return),
-                        ..
-                    },
-                    ..
-                } = event {
-                    match self.raw_input.load(Ordering::Acquire)
-                    {
-                        true => {
-                            println!("Switching to non-raw input.");
-                            self.raw_input.store(false, Ordering::Relaxed);
+                if let WindowEvent::KeyboardInput { input, .. } = event {
+                    match input.state {
+                        ElementState::Pressed => {
+
+                            let previous_state = match self.key_map.read() {
+                                Ok(guard) => guard.get(&input.scancode).cloned(),
+                                _ => None,
+                            };
+
+                            match previous_state {
+                                None | Some(ButtonState::Released) => {
+                                    if let Ok(mut guard) = self.key_map.write() {
+                                        guard.insert(input.scancode, ButtonState::Pressed(std::time::Instant::now()));
+                                    }
+                                },
+                                _ => {
+                                    /* ignore */
+                                }
+                            }
                         },
-                        false => {
-                            println!("Switching to raw input.");
-                            self.raw_input.store(true, Ordering::Relaxed);
+                        ElementState::Released => {
+                            if let Ok(mut guard) = self.key_map.write() {
+                                guard.insert(input.scancode, ButtonState::Released);
+                            }
                         }
                     }
-                }
 
-                if let WindowEvent::KeyboardInput { input, .. } = event {
-
-                    if self.raw_input.load(Ordering::Acquire) {
-                        return true;
-                    }
-
-                    self.set_key_state(input.scancode, input.state == ElementState::Pressed);
                     return true;
                 }
 
                 return false;
             },
             _ => false,
+        }
+    }
+
+    pub fn clear_presses(&self)
+    {
+        match self.key_map.write() {
+            Ok(mut guard) => {
+                guard.iter_mut().for_each(|(_, state)| {
+                    if let ButtonState::Pressed(time) = *state {
+                        *state = ButtonState::Held(time);
+                    }
+                });
+            },
+            Err(e) => {
+                println!("Failed to access key s {e}");
+            }
         }
     }
 }

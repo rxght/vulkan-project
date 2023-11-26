@@ -266,11 +266,6 @@ impl Graphics
             ).into(),
         }, ShaderStages::VERTEX);
 
-        dbg!("Don't forget to remove this!");
-        global_ubo.access_data(|data| {
-            data.view_projection = cgmath::Matrix4::identity().into();
-        });
-
         gfx.global_bindables.push(global_ubo);
 
         (

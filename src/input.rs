@@ -8,6 +8,16 @@ pub use keyboard::Keyboard;
 mod mouse;
 pub use mouse::Mouse;
 
+#[derive(Clone, Debug)]
+pub enum ButtonState
+{
+    Pressed(std::time::Instant),
+    Held(std::time::Instant),
+    Released,
+}
+
+const BUTTON_HELD_THRESHOLD: std::time::Duration = std::time::Duration::from_millis(300);
+
 pub struct Input
 {
     window: Arc<Window>,
@@ -36,9 +46,17 @@ impl Input
         })
     }
 
+    /// returns true if the event was handled and false if it should be passed on.
     pub fn handle_event(&self, event: &Event<'_, ()>) -> bool 
     {
         (self.keyboard_event_handler)(&self.keyboard, event) |
         (self.mouse_event_handler)(&self.mouse, event)
+    }
+
+    /// call this at the end of each frame to make sure every key press is only counted as a press for one frame
+    pub fn clear_presses(&self)
+    {
+        self.mouse.clear_presses();
+        self.keyboard.clear_presses();
     }
 }

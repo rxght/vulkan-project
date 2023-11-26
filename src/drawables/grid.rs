@@ -1,33 +1,38 @@
+use std::sync::Arc;
+
 use cgmath::Vector2;
-use vulkano::{buffer::BufferContents, pipeline::graphics::{vertex_input::Vertex, input_assembly::{InputAssemblyState, PrimitiveTopology}}, format};
+use vulkano::{buffer::BufferContents, pipeline::graphics::{vertex_input::Vertex, input_assembly::{InputAssemblyState, PrimitiveTopology}}, format, shader::ShaderStages};
 
-use crate::graphics::{drawable::{GenericDrawable, DrawableEntry}, Graphics, bindable, shaders::{vert_first, frag_first, frag_line_segment, vert_2d}};
-
-const SQUARE_WIDTH: u32 = 100;
-const GRID_SIZE: Vector2<u32> = Vector2{ x: 5, y: 3 };
+use crate::graphics::{drawable::{GenericDrawable, DrawableEntry}, Graphics, bindable::{self, PushConstant}, shaders::{vert_first, frag_first, frag_line_segment, vert_2d}};
 
 pub struct Grid
 {
     entry: DrawableEntry,
+    pub pc: Arc<PushConstant<vert_2d::Pc>>,
+    pub dimensions: Vector2<u32>
 }
+
+const SQUARE_WIDTH: f32 = 1.0;
+
+const MARGIN_FROM_EDGE: f32 = 0.1;
 
 impl Grid
 {
-    pub fn new(gfx: &mut Graphics) -> Self
+    pub fn new(gfx: &mut Graphics, dimensions: Vector2<u32>) -> Self
     {
+        let pc =
+            bindable::PushConstant::new(gfx, 0, vert_2d::Pc{scaling: [0.5, 0.5]}, ShaderStages::VERTEX);
+
         let mut entry = GenericDrawable::new(&gfx, 0, || {
             vec![] // no per instance bindables necessary
         }, || {
             let window_size = gfx.get_window().inner_size();
 
-            let x_offset = (window_size.width - SQUARE_WIDTH * GRID_SIZE.x) as f32 / window_size.width as f32;
-            let y_offset = (window_size.height - SQUARE_WIDTH * GRID_SIZE.y) as f32 / window_size.height as f32;
+            let mut vertices: Vec<Vertex> = Vec::with_capacity((dimensions.x * 2 + dimensions.y * 2) as usize);
+            let mut indices: Vec<u32> = Vec::with_capacity(((dimensions.x + 1) * 2 + (dimensions.y + 1) * 2) as usize);
 
-            let square_width = 2.0 * SQUARE_WIDTH as f32 / window_size.width as f32;
-            let square_height = 2.0 * SQUARE_WIDTH as f32 / window_size.height as f32;
-
-            let mut vertices = Vec::with_capacity((GRID_SIZE.x * 2 + GRID_SIZE.y * 2) as usize);
-            let mut indices = Vec::with_capacity(((GRID_SIZE.x + 1) * 2 + (GRID_SIZE.y + 1) * 2) as usize);
+            let half_width = SQUARE_WIDTH * dimensions.x as f32 / 2.0;
+            let half_height = SQUARE_WIDTH * dimensions.y as f32 / 2.0;
 
             #[derive(BufferContents, Vertex)]
             #[repr(C)]
@@ -37,29 +42,26 @@ impl Grid
             }
 
             // The outer square
-            vertices.push(Vertex{ position: [ (x_offset - 1.0),  (y_offset - 1.0)]});
-            vertices.push(Vertex{ position: [-(x_offset - 1.0),  (y_offset - 1.0)]});
-            vertices.push(Vertex{ position: [ (x_offset - 1.0), -(y_offset - 1.0)]});
-            vertices.push(Vertex{ position: [-(x_offset - 1.0), -(y_offset - 1.0)]});
+            vertices.push(Vertex{ position: [ half_width,  half_height]});
+            vertices.push(Vertex{ position: [-half_width,  half_height]});
+            vertices.push(Vertex{ position: [ half_width, -half_height]});
+            vertices.push(Vertex{ position: [-half_width, -half_height]});
             indices.extend([0,1,0,2,2,3,1,3].iter());
 
-            let mut index_offset = 4;
-
             // grid lines
-
-            for x in 1..GRID_SIZE.x {
-                vertices.push(Vertex{ position: [(x_offset - 1.0) + x as f32 * square_width,  (y_offset - 1.0)]});
-                vertices.push(Vertex{ position: [(x_offset - 1.0) + x as f32 * square_width, -(y_offset - 1.0)]});
-                indices.extend([0 + index_offset, 1 + index_offset].iter());
-                index_offset += 2;
+            for x in 1..dimensions.x
+            {
+                vertices.push(Vertex { position: [half_width - x as f32,  half_height] });
+                vertices.push(Vertex { position: [half_width - x as f32, -half_height] });
+            }
+            for y in 1..dimensions.y
+            {
+                vertices.push(Vertex { position: [ half_width, half_height - y as f32] });
+                vertices.push(Vertex { position: [-half_width, half_height - y as f32] });
             }
 
-            for y in 1..GRID_SIZE.y {
-                vertices.push(Vertex{ position: [ (x_offset - 1.0), (y_offset - 1.0) + y as f32 * square_height]});
-                vertices.push(Vertex{ position: [-(x_offset - 1.0), (y_offset - 1.0) + y as f32 * square_height]});
-                indices.extend([0 + index_offset, 1 + index_offset].iter());
-                index_offset += 2;
-            }
+            // fill indices
+            indices.extend((4..vertices.len() as u32).into_iter());
 
             vec![
                 bindable::VertexShader::from_module(vert_2d::load(gfx.get_device()).unwrap()),
@@ -69,15 +71,19 @@ impl Grid
                 bindable::GodBindable::new( |_, _| {},
                     |pipeline_builder, _|
                     {
-                        println!("sup!");
                         pipeline_builder.input_assembly_state = InputAssemblyState::new().topology(PrimitiveTopology::LineList);
                     }
                 ),
+                pc.clone(),
             ]
         });
 
         gfx.register_drawable(&mut entry);
 
-        Self{entry: entry}
+        Self{
+            entry: entry,
+            pc: pc,
+            dimensions: dimensions,
+        }
     }
 }
