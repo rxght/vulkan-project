@@ -16,37 +16,30 @@ mod drawables {
     pub mod triangle;
     pub mod cube;
     pub mod textest;
+    pub mod grid;
 }
 
 pub struct App
 {
-    start_time: std::time::Instant,
-    textured_square: drawables::textest::TexturedSquare,
+    grid: drawables::grid::Grid,
 }
 
 impl App
 {
     pub fn new(gfx: &mut Graphics) -> Self
     {
-        let window_extent = gfx.get_window().inner_size();
-        let aspect = window_extent.width as f32 / window_extent.height as f32;
         Self {
-            start_time: std::time::Instant::now(),
-            textured_square: drawables::textest::TexturedSquare::new(gfx, true),
+            grid: drawables::grid::Grid::new(gfx),
         }
     }
     
-    pub fn resize_callback(&mut self)
+    pub fn resize_callback(&self)
     {
         
     }
 
-    pub fn run(&mut self, gfx: &Graphics)
+    pub fn run(&self, gfx: &Graphics)
     {
-        let time = (std::time::Instant::now() - self.start_time).as_secs_f32();
 
-        self.textured_square.pc.access_data(|data| {
-            data.model = cgmath::Matrix4::from_angle_y(Rad((time).sin())).into()
-        });
     }
 }

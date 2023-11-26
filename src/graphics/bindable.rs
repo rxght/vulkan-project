@@ -9,12 +9,14 @@ mod shader;
 mod uniform;
 mod texture;
 mod push_constant;
+mod god_bindable;
 
 pub use buffer::*;
 pub use shader::*;
 pub use uniform::*;
 pub use texture::*;
 pub use push_constant::*;
+pub use god_bindable::*;
 
 pub trait Bindable
 {

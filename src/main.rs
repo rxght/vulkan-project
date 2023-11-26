@@ -4,23 +4,32 @@
 
 use app::App;
 use graphics::Graphics;
-use winit::{event::{Event, WindowEvent}, event_loop::ControlFlow};
+use winit::{event::{Event, WindowEvent, DeviceEvent, DeviceId}, event_loop::ControlFlow};
 
 #[path ="app.rs"]
 mod app;
-
 mod graphics;
+mod input;
 
 fn main()
 {
     let (mut gfx, event_loop) = Graphics::new();
-    let mut app = App::new(&mut gfx);
+    let app = App::new(&mut gfx);
+    let input = input::Input::new(gfx.get_window());
 
     let mut is_minimized = false;
 
     event_loop.run(move 
-        |event, _window_target, control_flow|
+        |event, window_target, control_flow|
     {
+
+        let event_handled =
+            input.handle_event(&event);
+        
+        if event_handled {
+            return;
+        }
+
         match event
         {
             Event::WindowEvent {
@@ -55,7 +64,7 @@ fn main()
                 if !is_minimized {
                     gfx.draw_frame()
                 }
-            }
+            },
             _ => (),
         }
     });

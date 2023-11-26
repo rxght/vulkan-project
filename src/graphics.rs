@@ -257,7 +257,7 @@ impl Graphics
         let aspect = window_extent.width as f32 / window_extent.height as f32;
         let global_ubo = UniformBuffer::new(&gfx, 0, GlobalUbo {
             view_projection: (
-                cgmath::perspective(cgmath::Deg(70.0), aspect, 0.2, 10.0) *
+                cgmath::perspective(cgmath::Deg(60.0), aspect, 0.2, 10.0) *
                 cgmath::Matrix4::look_at_rh(
                     cgmath::Point3{x: 0.0, y: 0.8, z: 1.5},
                     cgmath::Point3{x: 0.0, y: 0.0, z: 0.0},
@@ -265,6 +265,11 @@ impl Graphics
                 )
             ).into(),
         }, ShaderStages::VERTEX);
+
+        dbg!("Don't forget to remove this!");
+        global_ubo.access_data(|data| {
+            data.view_projection = cgmath::Matrix4::identity().into();
+        });
 
         gfx.global_bindables.push(global_ubo);
 
@@ -280,7 +285,7 @@ impl Graphics
     pub fn get_shared_data_map(&self) -> &HashMap<u32, Weak<DrawableSharedPart>> { &self.shared_data_map }
     pub fn get_swapchain_format(&self) -> Format {self.swapchain.image_format()}
     pub fn get_descriptor_set_allocator(&self) -> &StandardDescriptorSetAllocator { &self.descriptor_set_allocator }
-    pub fn get_window(&self) -> &Window { self.surface.object().unwrap().downcast_ref().unwrap() }
+    pub fn get_window(&self) -> Arc<Window> { self.surface.object().unwrap().clone().downcast().unwrap() }
     pub fn graphics_queue(&self) -> Arc<Queue> { self.queues.graphics_queue.clone().unwrap() }
     pub fn get_cmd_allocator(&self) -> &StandardCommandBufferAllocator { &self.cmd_allocator }
     pub const fn get_in_flight_count(&self) -> usize { IN_FLIGHT_COUNT }
