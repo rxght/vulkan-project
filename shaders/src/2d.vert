@@ -6,11 +6,7 @@ layout( push_constant ) uniform Pc {
     vec2 scaling;
 };
 
-layout( set = 0, binding = 0 ) uniform GlobalUbo {
-    mat4 view_projection;
-};
-
 void main()
 {
-    gl_Position =  view_projection * vec4(scaling * position, 0.0f, 1.0f);
+    gl_Position =  vec4(scaling * position, 0.0f, 1.0f);
 }

@@ -24,7 +24,9 @@ impl Grid
             bindable::PushConstant::new(gfx, 0, vert_2d::Pc{scaling: [0.5, 0.5]}, ShaderStages::VERTEX);
 
         let mut entry = GenericDrawable::new(&gfx, 0, || {
-            vec![] // no per instance bindables necessary
+            vec![
+                pc.clone()
+            ] // no per instance bindables necessary
         }, || {
             let window_size = gfx.get_window().inner_size();
 
@@ -73,8 +75,7 @@ impl Grid
                     {
                         pipeline_builder.input_assembly_state = InputAssemblyState::new().topology(PrimitiveTopology::LineList);
                     }
-                ),
-                pc.clone(),
+                )
             ]
         });
 

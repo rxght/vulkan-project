@@ -120,18 +120,10 @@ impl QueueIndices {
     }
 }
 
-#[derive(BufferContents)]
-#[repr(C)]
-struct VsConstants
+#[derive(PartialEq, Eq, Hash)]
+pub enum GlobalBindableId
 {
-    pub view_and_projection_matrix: [[f32; 4]; 4],
-}
-
-#[derive(BufferContents)]
-#[repr(C)]
-struct FsConstants
-{
-    pub placeholder_color: f32,
+    ViewProjection,
 }
 
 pub struct Graphics
@@ -140,6 +132,7 @@ pub struct Graphics
     //instance: Arc<Instance>,
     //debug_messenger: Option<DebugUtilsMessenger>,
     surface: Arc<Surface>,
+    window: Arc<Window>,
     //physical_device: Arc<PhysicalDevice>,
     device: Arc<Device>,
     queues: Queues,
@@ -157,7 +150,7 @@ pub struct Graphics
     // drawable stuff
     shared_data_map: HashMap<u32, Weak<DrawableSharedPart>>,
     registered_drawables: Vec<Weak<GenericDrawable>>,
-    global_bindables: Vec<Arc<dyn bindable::Bindable>>,
+    global_bindables: HashMap<GlobalBindableId, Arc<dyn bindable::Bindable>>,
 
     main_command_buffer: Option<PrimaryAutoCommandBuffer<StandardCommandBufferAlloc>>,
     futures: Vec<Option<Box<dyn GpuFuture>>>,
@@ -214,12 +207,15 @@ impl Graphics
         let mut futures = Vec::with_capacity(IN_FLIGHT_COUNT);
         futures.resize_with(IN_FLIGHT_COUNT, || Some(sync::now(device.clone()).boxed()));
 
+        let window = surface.object().unwrap().clone().downcast().unwrap();
+
         #[allow(unused_mut)]
         let mut gfx = Graphics {
             //library: library,
             //instance: instance,
             //debug_messenger: None,
             surface: surface,
+            window: window,
             //physical_device: physical_device,
             device: device,
             queues: queues,
@@ -235,9 +231,7 @@ impl Graphics
 
             shared_data_map: HashMap::new(),
             registered_drawables: Vec::new(),
-            global_bindables: Vec::new(),
-
-
+            global_bindables: HashMap::new(),
 
             main_command_buffer: None,
             futures: futures,
@@ -245,28 +239,7 @@ impl Graphics
             framebuffer_index: 0,
         };
 
-        // The global uniform buffer object contains a single matrix describing the view and projection matrix
-        #[derive(Clone, Copy, Zeroable, bytemuck::Pod)]
-        #[repr(C)]
-        struct GlobalUbo {
-            view_projection: [[f32; 4]; 4],
-        }
-
-        // temporary refactoring to isolate view and projection matrices from model matrix
-        let window_extent = gfx.get_window().inner_size();
-        let aspect = window_extent.width as f32 / window_extent.height as f32;
-        let global_ubo = UniformBuffer::new(&gfx, 0, GlobalUbo {
-            view_projection: (
-                cgmath::perspective(cgmath::Deg(60.0), aspect, 0.2, 10.0) *
-                cgmath::Matrix4::look_at_rh(
-                    cgmath::Point3{x: 0.0, y: 0.8, z: 1.5},
-                    cgmath::Point3{x: 0.0, y: 0.0, z: 0.0},
-                    cgmath::Vector3{x: 0.0, y: -1.0, z: 0.0}
-                )
-            ).into(),
-        }, ShaderStages::VERTEX);
-
-        gfx.global_bindables.push(global_ubo);
+        gfx.init_global_bindables();
 
         (
             gfx,
@@ -280,14 +253,38 @@ impl Graphics
     pub fn get_shared_data_map(&self) -> &HashMap<u32, Weak<DrawableSharedPart>> { &self.shared_data_map }
     pub fn get_swapchain_format(&self) -> Format {self.swapchain.image_format()}
     pub fn get_descriptor_set_allocator(&self) -> &StandardDescriptorSetAllocator { &self.descriptor_set_allocator }
-    pub fn get_window(&self) -> Arc<Window> { self.surface.object().unwrap().clone().downcast().unwrap() }
+    pub fn get_window(&self) -> Arc<Window> { self.window.clone() }
     pub fn graphics_queue(&self) -> Arc<Queue> { self.queues.graphics_queue.clone().unwrap() }
     pub fn get_cmd_allocator(&self) -> &StandardCommandBufferAllocator { &self.cmd_allocator }
     pub const fn get_in_flight_count(&self) -> usize { IN_FLIGHT_COUNT }
     pub fn get_in_flight_index(&self) -> usize { self.inflight_index as usize }
-    fn get_global_bindables(&self) -> & Vec<Arc<dyn Bindable>> { &self.global_bindables }
+    pub fn get_global_bindable(&self, id: GlobalBindableId) -> Arc<dyn Bindable> { self.global_bindables.get(&id).cloned().unwrap() }
 
-    fn get_global_bindables_mut(&mut self) -> &mut Vec<Arc<dyn Bindable>> { &mut self.global_bindables }
+
+    fn init_global_bindables(&mut self)
+    {
+        #[derive(Clone, Copy, Zeroable, bytemuck::Pod)]
+        #[repr(C)]
+        struct MatrixUbo {
+            matrix: [[f32; 4]; 4],
+        }
+
+        let window_extent = self.window.inner_size();
+        let aspect = window_extent.width as f32 / window_extent.height as f32;
+        
+        let view_projection = UniformBuffer::new(&self, 0, MatrixUbo {
+            matrix: (
+                cgmath::perspective(cgmath::Deg(60.0), aspect, 0.2, 10.0) *
+                cgmath::Matrix4::look_at_rh(
+                    cgmath::Point3{x: 0.0, y: 0.8, z: 1.5},
+                    cgmath::Point3{x: 0.0, y: 0.0, z: 0.0},
+                    cgmath::Vector3{x: 0.0, y: -1.0, z: 0.0}
+                )
+            ).into(),
+        }, ShaderStages::VERTEX);
+        
+        self.global_bindables.insert(GlobalBindableId::ViewProjection, view_projection);
+    }
 
     pub fn recreate_command_buffer(&mut self)
     {
@@ -328,11 +325,6 @@ impl Graphics
             }
 
             for bindable in drawable.get_shared_bindables()
-            {
-                bindable.bind(&self, &mut builder, drawable.get_pipeline_layout());
-            }
-
-            for bindable in &self.global_bindables
             {
                 bindable.bind(&self, &mut builder, drawable.get_pipeline_layout());
             }
@@ -864,4 +856,3 @@ fn create_depth_buffer(device: Arc<Device>, swapchain: Arc<Swapchain>,
 
     (views, format)
 }
-

@@ -62,20 +62,22 @@ impl App
             data.scaling = [shared * x_scaling, shared * y_scaling];
         });
 
-        unsafe {
-            if self.input.keyboard.is_key_pressed(28) {
-                TEST += 1;
-            }
+        //// Input test
+        //unsafe {
+        //    if self.input.keyboard.is_key_pressed(28) {
+        //        TEST += 1;
+        //    }
+        //    print!("\r{}\r", (0..100).into_iter().map(|p| ' ').collect::<String>());
+        //    print!("Enter pressed {TEST} times. ");
+        //    let duration = match self.input.keyboard.is_key_held(28) {
+        //        Some(t) => t.as_secs_f32(),
+        //        None => 0.0
+        //    };
+        //    print!("Enter key held down for {} seconds", duration);
+        //    _ = std::io::stdout().flush();
+        //}
 
-            print!("\r                                                                                     \r\
-            Enter pressed {TEST} times. ");
-            let duration = match self.input.keyboard.is_key_held(28) {
-                Some(t) => t.as_secs_f32(),
-                None => 0.0
-            };
-            print!("Enter key held down for {} seconds", duration);
 
-            _ = std::io::stdout().flush();
-        }
+        
     }
 }
