@@ -2,13 +2,13 @@ use std::{sync::{atomic::{Ordering, AtomicBool}, Arc, RwLock}, collections::Hash
 
 use winit::event::{Event, ElementState, WindowEvent, DeviceEvent, KeyboardInput, VirtualKeyCode};
 
-use super::ButtonState;
+use super::{ButtonState, BypassHasher};
 
 const KEY_COUNT: usize = 128;
 
 pub struct Keyboard
 {
-    key_map: RwLock<HashMap<u32, ButtonState>>,
+    key_map: RwLock<HashMap<u32, ButtonState, BypassHasher>>,
 }
 
 impl Keyboard
@@ -38,7 +38,7 @@ impl Keyboard
     {
         (
             Self {
-                key_map: RwLock::new(HashMap::new()),
+                key_map: RwLock::new(HashMap::with_hasher(BypassHasher{})),
             },
             Keyboard::_event_handler,
         )

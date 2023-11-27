@@ -1,4 +1,4 @@
-use std::{sync::{Arc, Mutex, atomic::{AtomicBool, Ordering}}, mem::size_of};
+use std::{sync::{Arc, Mutex, atomic::{AtomicBool, Ordering}}, mem::{size_of, transmute}, hash::{Hasher, BuildHasher}, marker::PhantomData, collections::hash_map::{DefaultHasher, RandomState}};
 
 use winit::{event_loop::ControlFlow, event::{Event, DeviceEvent, WindowEvent, ElementState}, window::Window};
 
@@ -58,5 +58,28 @@ impl Input
     {
         self.mouse.clear_presses();
         self.keyboard.clear_presses();
+    }
+}
+
+/// Should only be used with HashMap where key type is T
+struct BypassHasher {
+}
+
+impl BuildHasher for BypassHasher
+{
+    type Hasher = DefaultHasher;
+
+    fn build_hasher(&self) -> Self::Hasher {
+        unimplemented!()
+    }
+
+    fn hash_one<T: std::hash::Hash>(&self, x: T) -> u64
+        where
+            Self: Sized,
+            Self::Hasher: Hasher,
+    {
+        unsafe {
+            *transmute::<&T, &u32>(&x) as u64
+        }
     }
 }

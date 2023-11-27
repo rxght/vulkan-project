@@ -10,6 +10,7 @@ use winit::{event_loop::EventLoop, window::Window};
 use crate::graphics::Graphics;
 use crate::graphics::bindable;
 use crate::graphics::drawable::{DrawableEntry, self};
+use crate::input::ButtonState;
 use crate::input::Input;
 
 use self::drawables::*;
@@ -60,5 +61,21 @@ impl App
         self.grid.pc.access_data(|data| {
             data.scaling = [shared * x_scaling, shared * y_scaling];
         });
+
+        unsafe {
+            if self.input.keyboard.is_key_pressed(28) {
+                TEST += 1;
+            }
+
+            print!("\r                                                                                     \r\
+            Enter pressed {TEST} times. ");
+            let duration = match self.input.keyboard.is_key_held(28) {
+                Some(t) => t.as_secs_f32(),
+                None => 0.0
+            };
+            print!("Enter key held down for {} seconds", duration);
+
+            _ = std::io::stdout().flush();
+        }
     }
 }

@@ -1,16 +1,16 @@
-use std::{sync::{atomic::{AtomicBool, Ordering}, Mutex, RwLock}, mem::transmute, cell::Cell, collections::HashMap};
+use std::{sync::{atomic::{AtomicBool, Ordering}, Mutex, RwLock}, mem::transmute, cell::Cell, collections::HashMap, marker::PhantomData};
 
 use cgmath::{Vector2, Array};
 use winit::event::{Event, DeviceEvent, ElementState, WindowEvent};
 
-use super::ButtonState;
+use super::{ButtonState, BypassHasher};
 use super::BUTTON_HELD_THRESHOLD;
 
 pub struct Mouse
 {
     pub os_position: Cell<Vector2<f64>>,
     pub raw_delta: Cell<Vector2<f64>>,
-    button_map: RwLock<HashMap<u32, ButtonState>>,
+    button_map: RwLock<HashMap<u32, ButtonState, BypassHasher>>,
 }
 
 impl Mouse
@@ -21,7 +21,7 @@ impl Mouse
             Self {
                 os_position: Cell::new(Vector2 { x: 0.0, y: 0.0 }),
                 raw_delta: Cell::new(Vector2 { x: 0.0, y: 0.0 }),
-                button_map: RwLock::new(HashMap::new()),
+                button_map: RwLock::new(HashMap::with_hasher(super::BypassHasher{})),
             },
             Mouse::_event_handler
         )
