@@ -1,20 +1,21 @@
-#![allow(unused_variables)]
 #![allow(dead_code)]
-#![allow(unused_imports)]
 
-use std::{borrow::BorrowMut, sync::Arc};
+use std::sync::Arc;
 
 use app::App;
 use graphics::Graphics;
-use winit::{event::{Event, WindowEvent, DeviceEvent, DeviceId}, event_loop::ControlFlow, window::Window};
+use winit::{
+    event::{Event, WindowEvent},
+    event_loop::ControlFlow,
+    window::Window,
+};
 
-#[path ="app.rs"]
+#[path = "app.rs"]
 mod app;
 mod graphics;
 mod input;
 
-fn main()
-{
+fn main() {
     // initialize subsystems
     let (mut gfx, event_loop) = Graphics::new();
     let input = input::Input::new(gfx.get_window());
@@ -24,34 +25,35 @@ fn main()
 
     let mut minimized = false;
 
-    event_loop.run(move 
-        |event, window_target, control_flow|
-    {
+    event_loop.run(move |event, _window_target, control_flow| {
+        let event_handled = input.handle_event(&event, gfx.get_window());
 
-        let event_handled =
-            input.handle_event(&event, gfx.get_window());
-        
         if event_handled {
             return;
         }
 
-        match event
-        {
+        match event {
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
                 ..
             } => {
                 *control_flow = ControlFlow::Exit;
             },
-            Event::WindowEvent { 
+            Event::WindowEvent {
                 event: WindowEvent::Resized(_),
                 ..
             } => {
                 minimized = is_minimized(gfx.get_window());
-                
+
                 if !minimized {
-                    app.resize_callback();
+                    app.resize_callback(&mut gfx);
                 }
+            },
+            Event::WindowEvent {
+                event: WindowEvent::Focused(false),
+                ..
+            } => {
+                minimized = is_minimized(gfx.get_window());
             },
             Event::RedrawEventsCleared => {
                 app.run(&gfx);
@@ -59,14 +61,13 @@ fn main()
                     gfx.draw_frame()
                 }
                 input.clear_presses();
-            },
+            }
             _ => (),
         }
     });
 }
 
-fn is_minimized(window: Arc<Window>) -> bool
-{
+fn is_minimized(window: Arc<Window>) -> bool {
     let extent = window.inner_size();
 
     let min = window.is_minimized().unwrap_or(false);

@@ -1,115 +1,111 @@
-use std::{sync::{atomic::{AtomicBool, Ordering}, Mutex, RwLock, Arc}, mem::transmute, cell::Cell, collections::HashMap, marker::PhantomData};
+use std::{
+    cell::Cell,
+    collections::HashMap,
+    sync::{Arc, RwLock},
+};
 
-use cgmath::{Vector2, Array};
-use winit::{event::{Event, DeviceEvent, ElementState, WindowEvent}, window::Window};
+use cgmath::Vector2;
+use winit::{
+    event::{DeviceEvent, ElementState, Event, WindowEvent},
+    window::Window,
+};
 
 use super::{ButtonState, BypassHasher};
-use super::BUTTON_HELD_THRESHOLD;
 
-pub struct Mouse
-{
+pub struct Mouse {
     pub cursor_position: Cell<Vector2<f64>>,
     pub mouse_movement: Cell<Vector2<f64>>,
     button_map: RwLock<HashMap<u32, ButtonState, BypassHasher>>,
 }
 
-impl Mouse
-{
-    pub fn new() -> (Self, fn(&Mouse, &Event<'_, ()>, Arc<Window>) -> bool)
-    {
+impl Mouse {
+    pub fn new() -> (Self, fn(&Mouse, &Event<'_, ()>, Arc<Window>) -> bool) {
         (
             Self {
                 cursor_position: Cell::new(Vector2 { x: 0.0, y: 0.0 }),
                 mouse_movement: Cell::new(Vector2 { x: 0.0, y: 0.0 }),
-                button_map: RwLock::new(HashMap::with_hasher(super::BypassHasher{})),
+                button_map: RwLock::new(HashMap::with_hasher(super::BypassHasher {})),
             },
-            Mouse::_event_handler
+            Mouse::_event_handler,
         )
     }
 
-    pub fn is_button_pressed(&self, button_id: u32) -> bool
-    {
+    pub fn is_button_pressed(&self, button_id: u32) -> bool {
         match self.get_button_state(button_id) {
             Some(ButtonState::Pressed(_)) => true,
             _ => false,
         }
     }
 
-    pub fn is_button_held(&self, button_id: u32) -> Option<std::time::Duration>
-    {
+    pub fn is_button_held(&self, button_id: u32) -> Option<std::time::Duration> {
         match self.get_button_state(button_id) {
             Some(ButtonState::Held(start)) => Some(std::time::Instant::now() - start),
             _ => None,
         }
     }
 
-    pub fn get_button_state(&self, button_id: u32) -> Option<ButtonState>
-    {
+    pub fn get_button_state(&self, button_id: u32) -> Option<ButtonState> {
         self.button_map.read().ok()?.get(&button_id).cloned()
     }
-    
-    fn _event_handler(&self, event: &Event<'_, ()>, window: Arc<Window>) -> bool
-    {
-        match event
-        {
-            Event::DeviceEvent{
+
+    fn _event_handler(&self, event: &Event<'_, ()>, window: Arc<Window>) -> bool {
+        match event {
+            Event::DeviceEvent {
                 event,
-                device_id
+                device_id: _,
             } => {
                 if let DeviceEvent::Button { button, state } = event {
-                    let previous_state =
-                        self.button_map.read().ok()
+                    let previous_state = self
+                        .button_map
+                        .read()
+                        .ok()
                         .and_then(|p| p.get(button).cloned());
 
                     match previous_state {
-                        Some(ButtonState::Pressed(_)) => { 
+                        Some(ButtonState::Pressed(_)) | Some(ButtonState::Held(_)) => {
                             if *state == ElementState::Released {
                                 if let Ok(mut guard) = self.button_map.write() {
                                     guard.insert(*button, ButtonState::Released);
                                 }
                             }
-                        },
-                        _ =>
-                        {
+                        }
+                        _ => {
                             if *state == ElementState::Pressed {
                                 if let Ok(mut guard) = self.button_map.write() {
-                                    guard.insert(*button, ButtonState::Pressed(std::time::Instant::now()));
+                                    guard.insert(
+                                        *button,
+                                        ButtonState::Pressed(std::time::Instant::now()),
+                                    );
                                 }
                             }
                         }
                     }
                 }
-                if let DeviceEvent::MouseMotion{delta} = event {
-                    self.mouse_movement.set(self.mouse_movement.get() + Vector2::from(*delta));
+                if let DeviceEvent::MouseMotion { delta } = event {
+                    self.mouse_movement
+                        .set(self.mouse_movement.get() + Vector2::from(*delta));
                     return true;
                 }
                 return false;
-            },
-            Event::WindowEvent{
-                event,
-                ..
-            } => {
+            }
+            Event::WindowEvent { event, .. } => {
                 if let WindowEvent::CursorMoved { position, .. } = event {
-                    
                     let window_size = window.inner_size();
-                    
-                    self.cursor_position.set(
-                        Vector2{ 
-                            x: -((window_size.width / 2) as f64) + position.x,
-                            y: (window_size.height / 2) as f64 - position.y
-                        }
-                    );
+
+                    self.cursor_position.set(Vector2 {
+                        x: -((window_size.width / 2) as f64) + position.x,
+                        y: (window_size.height / 2) as f64 - position.y,
+                    });
                     return true;
                 }
 
                 return false;
-            },
+            }
             _ => false,
         }
     }
 
-    pub fn clear_presses(&self)
-    {
+    pub fn clear_presses(&self) {
         match self.button_map.write() {
             Ok(mut guard) => {
                 guard.iter_mut().for_each(|(_, state)| {
@@ -117,7 +113,7 @@ impl Mouse
                         *state = ButtonState::Held(time);
                     }
                 });
-            },
+            }
             Err(e) => {
                 println!("Failed to access key state: {e}");
             }

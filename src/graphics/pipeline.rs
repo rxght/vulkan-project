@@ -1,28 +1,30 @@
-
 use std::sync::Arc;
 use vulkano::{
-    pipeline::{
-        GraphicsPipeline,
-        graphics::{
-            vertex_input::VertexBufferDescription, input_assembly::InputAssemblyState,
-            viewport::ViewportState, color_blend::ColorBlendState, rasterization::{RasterizationState, PolygonMode, CullMode, FrontFace, DepthBiasState, DepthBias},
-            depth_stencil::DepthStencilState, discard_rectangle::DiscardRectangleState,
-            multisample::MultisampleState, tessellation::TessellationState,
-            render_pass::PipelineRenderPassType
-        },
-        PipelineLayout,
-        layout::{PipelineLayoutCreateInfo, PushConstantRange}, StateMode
-    },
+    descriptor_set::layout::DescriptorSetLayout,
     device::Device,
+    pipeline::{
+        graphics::{
+            color_blend::ColorBlendState,
+            depth_stencil::DepthStencilState,
+            discard_rectangle::DiscardRectangleState,
+            input_assembly::InputAssemblyState,
+            multisample::MultisampleState,
+            rasterization::{CullMode, FrontFace, RasterizationState},
+            render_pass::PipelineRenderPassType,
+            tessellation::TessellationState,
+            vertex_input::VertexBufferDescription,
+            viewport::ViewportState,
+        },
+        layout::{PipelineLayoutCreateInfo, PushConstantRange},
+        GraphicsPipeline, PipelineLayout, StateMode,
+    },
     render_pass::Subpass,
-    shader::ShaderModule, 
-    descriptor_set::layout::DescriptorSetLayout
+    shader::ShaderModule,
 };
 
 use super::Graphics;
 
-pub struct PipelineBuilder
-{
+pub struct PipelineBuilder {
     pub subpass: Subpass,
     pub vertex_buffer_description: Option<VertexBufferDescription>,
     pub input_assembly_state: InputAssemblyState,
@@ -40,10 +42,8 @@ pub struct PipelineBuilder
     pub push_constant_ranges: Vec<PushConstantRange>,
 }
 
-impl PipelineBuilder
-{
-    pub fn new(gfx: &Graphics) -> Self
-    {
+impl PipelineBuilder {
+    pub fn new(gfx: &Graphics) -> Self {
         Self {
             subpass: Subpass::from(gfx.get_main_render_pass(), 0).unwrap(),
             vertex_buffer_description: None,
@@ -68,15 +68,20 @@ impl PipelineBuilder
         }
     }
 
-    pub fn build(self, device: Arc<Device>) -> (Arc<GraphicsPipeline>, Arc<PipelineLayout>)
-    {
-        let vertex_shader_entry = self.vertex_shader.as_ref()
+    pub fn build(self, device: Arc<Device>) -> (Arc<GraphicsPipeline>, Arc<PipelineLayout>) {
+        let vertex_shader_entry = self
+            .vertex_shader
+            .as_ref()
             .expect("No vertex shader supplied.")
-            .entry_point("main").unwrap();
+            .entry_point("main")
+            .unwrap();
 
-        let fragment_shader_entry = self.fragment_shader.as_ref()
+        let fragment_shader_entry = self
+            .fragment_shader
+            .as_ref()
             .expect("No fragment shader supplied.")
-            .entry_point("main").unwrap();
+            .entry_point("main")
+            .unwrap();
 
         let layout = PipelineLayout::new(
             device.clone(),
@@ -84,8 +89,9 @@ impl PipelineBuilder
                 set_layouts: self.desriptor_set_layouts,
                 push_constant_ranges: self.push_constant_ranges,
                 ..Default::default()
-            }
-        ).unwrap();
+            },
+        )
+        .unwrap();
 
         (
             GraphicsPipeline::start()
@@ -101,8 +107,9 @@ impl PipelineBuilder
                 .discard_rectangle_state(self.discard_rectangle_state)
                 .multisample_state(self.multisample_state)
                 .tessellation_state(self.tessellation_state)
-                .with_pipeline_layout(device.clone(), layout.clone()).expect("Failed to create pipeline!"),
-            layout
+                .with_pipeline_layout(device.clone(), layout.clone())
+                .expect("Failed to create pipeline!"),
+            layout,
         )
     }
 }

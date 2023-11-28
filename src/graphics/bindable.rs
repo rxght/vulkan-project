@@ -1,28 +1,40 @@
 use std::sync::Arc;
 
-use vulkano::{shader::ShaderModule, command_buffer::{AutoCommandBufferBuilder, allocator::StandardCommandBufferAllocator, PrimaryAutoCommandBuffer}, pipeline::PipelineLayout};
+use vulkano::{
+    command_buffer::{
+        allocator::StandardCommandBufferAllocator, AutoCommandBufferBuilder,
+        PrimaryAutoCommandBuffer,
+    },
+    pipeline::PipelineLayout,
+    shader::ShaderModule,
+};
 
 use super::{pipeline::PipelineBuilder, Graphics};
 
 mod buffer;
-mod shader;
-mod uniform;
-mod texture;
-mod push_constant;
 mod god_bindable;
+mod push_constant;
+mod shader;
+mod texture;
+mod uniform;
 
 pub use buffer::*;
-pub use shader::*;
-pub use uniform::*;
-pub use texture::*;
-pub use push_constant::*;
 pub use god_bindable::*;
+pub use push_constant::*;
+pub use shader::*;
+pub use texture::*;
+pub use uniform::*;
 
-pub trait Bindable
-{
+pub trait Bindable {
     fn bind_to_pipeline(&self, builder: &mut PipelineBuilder, index_count: &mut u32);
-    fn bind(&self, _gfx: &Graphics,
-        _builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer, StandardCommandBufferAllocator>,
-        _pipeline_layout: Arc<PipelineLayout>
-    ) {}
+    fn bind(
+        &self,
+        _gfx: &Graphics,
+        _builder: &mut AutoCommandBufferBuilder<
+            PrimaryAutoCommandBuffer,
+            StandardCommandBufferAllocator,
+        >,
+        _pipeline_layout: Arc<PipelineLayout>,
+    ) {
+    }
 }
