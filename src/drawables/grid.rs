@@ -3,7 +3,7 @@ use std::sync::Arc;
 use cgmath::Vector2;
 use vulkano::{buffer::BufferContents, pipeline::graphics::{vertex_input::Vertex, input_assembly::{InputAssemblyState, PrimitiveTopology}}, format, shader::ShaderStages};
 
-use crate::graphics::{drawable::{GenericDrawable, DrawableEntry}, Graphics, bindable::{self, PushConstant}, shaders::{vert_first, frag_first, frag_line_segment, vert_2d}};
+use crate::graphics::{drawable::{GenericDrawable, DrawableEntry}, Graphics, bindable::{self, PushConstant}, shaders::{vert_first, frag_first, frag_line_segment, vert_2d, frag_solid_color}};
 
 pub struct Grid
 {
@@ -28,8 +28,6 @@ impl Grid
                 pc.clone()
             ] // no per instance bindables necessary
         }, || {
-            let window_size = gfx.get_window().inner_size();
-
             let mut vertices: Vec<Vertex> = Vec::with_capacity((dimensions.x * 2 + dimensions.y * 2) as usize);
             let mut indices: Vec<u32> = Vec::with_capacity(((dimensions.x + 1) * 2 + (dimensions.y + 1) * 2) as usize);
 
@@ -67,7 +65,7 @@ impl Grid
 
             vec![
                 bindable::VertexShader::from_module(vert_2d::load(gfx.get_device()).unwrap()),
-                bindable::FragmentShader::from_module(frag_line_segment::load(gfx.get_device()).unwrap()),
+                bindable::FragmentShader::from_module(frag_solid_color::load(gfx.get_device()).unwrap()),
                 bindable::IndexBuffer::new(&gfx, indices),
                 bindable::VertexBuffer::new(&gfx, vertices),
                 bindable::GodBindable::new( |_, _| {},

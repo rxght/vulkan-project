@@ -26,7 +26,7 @@ pub struct Input
     keyboard_event_handler: fn(&Keyboard, &Event<'_, ()>) -> bool,
 
     pub mouse: Mouse,
-    mouse_event_handler: fn(&Mouse, &Event<'_, ()>) -> bool,
+    mouse_event_handler: fn(&Mouse, &Event<'_, ()>, Arc<Window>) -> bool,
 }
 
 impl Input
@@ -47,10 +47,10 @@ impl Input
     }
 
     /// returns true if the event was handled and false if it should be passed on.
-    pub fn handle_event(&self, event: &Event<'_, ()>) -> bool 
+    pub fn handle_event(&self, event: &Event<'_, ()>, window: Arc<Window>) -> bool 
     {
         (self.keyboard_event_handler)(&self.keyboard, event) |
-        (self.mouse_event_handler)(&self.mouse, event)
+        (self.mouse_event_handler)(&self.mouse, event, window)
     }
 
     /// call this at the end of each frame to make sure every key press is only counted as a press for one frame

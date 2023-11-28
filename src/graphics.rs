@@ -124,6 +124,7 @@ impl QueueIndices {
 pub enum GlobalBindableId
 {
     ViewProjection,
+    CartesianToNormalized,
 }
 
 pub struct Graphics
@@ -282,8 +283,17 @@ impl Graphics
                 )
             ).into(),
         }, ShaderStages::VERTEX);
+
+        let cartesian_to_normalized = UniformBuffer::new(&self, 0, MatrixUbo{
+            matrix: cgmath::ortho(
+                -((window_extent.width / 2) as f32), (window_extent.width / 2) as f32,
+                (window_extent.height / 2) as f32, -((window_extent.height / 2) as f32),
+                0.0, 10.0
+            ).into()
+        }, ShaderStages::VERTEX);
         
         self.global_bindables.insert(GlobalBindableId::ViewProjection, view_projection);
+        self.global_bindables.insert(GlobalBindableId::CartesianToNormalized, cartesian_to_normalized);
     }
 
     pub fn recreate_command_buffer(&mut self)

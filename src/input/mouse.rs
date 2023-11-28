@@ -1,26 +1,26 @@
-use std::{sync::{atomic::{AtomicBool, Ordering}, Mutex, RwLock}, mem::transmute, cell::Cell, collections::HashMap, marker::PhantomData};
+use std::{sync::{atomic::{AtomicBool, Ordering}, Mutex, RwLock, Arc}, mem::transmute, cell::Cell, collections::HashMap, marker::PhantomData};
 
 use cgmath::{Vector2, Array};
-use winit::event::{Event, DeviceEvent, ElementState, WindowEvent};
+use winit::{event::{Event, DeviceEvent, ElementState, WindowEvent}, window::Window};
 
 use super::{ButtonState, BypassHasher};
 use super::BUTTON_HELD_THRESHOLD;
 
 pub struct Mouse
 {
-    pub os_position: Cell<Vector2<f64>>,
-    pub raw_delta: Cell<Vector2<f64>>,
+    pub cursor_position: Cell<Vector2<f64>>,
+    pub mouse_movement: Cell<Vector2<f64>>,
     button_map: RwLock<HashMap<u32, ButtonState, BypassHasher>>,
 }
 
 impl Mouse
 {
-    pub fn new() -> (Self, fn(&Mouse, &Event<'_, ()>) -> bool)
+    pub fn new() -> (Self, fn(&Mouse, &Event<'_, ()>, Arc<Window>) -> bool)
     {
         (
             Self {
-                os_position: Cell::new(Vector2 { x: 0.0, y: 0.0 }),
-                raw_delta: Cell::new(Vector2 { x: 0.0, y: 0.0 }),
+                cursor_position: Cell::new(Vector2 { x: 0.0, y: 0.0 }),
+                mouse_movement: Cell::new(Vector2 { x: 0.0, y: 0.0 }),
                 button_map: RwLock::new(HashMap::with_hasher(super::BypassHasher{})),
             },
             Mouse::_event_handler
@@ -48,7 +48,7 @@ impl Mouse
         self.button_map.read().ok()?.get(&button_id).cloned()
     }
     
-    fn _event_handler(&self, event: &Event<'_, ()>) -> bool
+    fn _event_handler(&self, event: &Event<'_, ()>, window: Arc<Window>) -> bool
     {
         match event
         {
@@ -80,7 +80,7 @@ impl Mouse
                     }
                 }
                 if let DeviceEvent::MouseMotion{delta} = event {
-                    self.raw_delta.set(Vector2::from(*delta));
+                    self.mouse_movement.set(self.mouse_movement.get() + Vector2::from(*delta));
                     return true;
                 }
                 return false;
@@ -90,7 +90,15 @@ impl Mouse
                 ..
             } => {
                 if let WindowEvent::CursorMoved { position, .. } = event {
-                    self.os_position.set(Vector2{x: position.x, y: position.y});
+                    
+                    let window_size = window.inner_size();
+                    
+                    self.cursor_position.set(
+                        Vector2{ 
+                            x: -((window_size.width / 2) as f64) + position.x,
+                            y: (window_size.height / 2) as f64 - position.y
+                        }
+                    );
                     return true;
                 }
 

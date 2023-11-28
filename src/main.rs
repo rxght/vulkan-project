@@ -29,7 +29,7 @@ fn main()
     {
 
         let event_handled =
-            input.handle_event(&event);
+            input.handle_event(&event, gfx.get_window());
         
         if event_handled {
             return;
