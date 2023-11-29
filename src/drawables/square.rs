@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use cgmath::Vector2;
+use cgmath::{SquareMatrix, Vector2};
 use vulkano::{
     buffer::BufferContents, pipeline::graphics::vertex_input::Vertex, shader::ShaderStages,
 };
@@ -8,7 +8,7 @@ use vulkano::{
 use crate::graphics::{
     bindable::{self, PushConstant},
     drawable::{DrawableEntry, GenericDrawable},
-    shaders::{frag_solid_white, vert_cartesian_2d},
+    shaders::{frag_solid_color, vert_cartesian_2d},
     Graphics,
 };
 
@@ -36,7 +36,20 @@ impl Square {
         let mut entry = GenericDrawable::new(
             gfx,
             5,
-            || vec![data.clone()],
+            || {
+                vec![
+                    bindable::PushConstant::new(
+                        gfx,
+                        0,
+                        frag_solid_color::Color {
+                            padding: cgmath::Matrix4::identity().into(),
+                            color: [0.5, 0.5, 0.5],
+                        },
+                        ShaderStages::FRAGMENT,
+                    ),
+                    data.clone(),
+                ]
+            },
             || {
                 #[derive(BufferContents, Vertex)]
                 #[repr(C)]
@@ -61,7 +74,7 @@ impl Square {
                         vert_cartesian_2d::load(gfx.get_device()).unwrap(),
                     ),
                     bindable::FragmentShader::from_module(
-                        frag_solid_white::load(gfx.get_device()).unwrap(),
+                        frag_solid_color::load(gfx.get_device()).unwrap(),
                     ),
                     gfx.get_utils().cartesian_to_normalized.clone(),
                 ]

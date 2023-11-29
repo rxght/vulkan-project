@@ -21,7 +21,7 @@ fn main() {
     let input = input::Input::new(gfx.get_window());
 
     // initialize app and pass it a reference to each subsystem
-    let app = App::new(&mut gfx, input.clone());
+    let mut app = App::new(&mut gfx, input.clone());
 
     let mut minimized = false;
 
@@ -38,7 +38,7 @@ fn main() {
                 ..
             } => {
                 *control_flow = ControlFlow::Exit;
-            },
+            }
             Event::WindowEvent {
                 event: WindowEvent::Resized(_),
                 ..
@@ -48,13 +48,13 @@ fn main() {
                 if !minimized {
                     app.resize_callback(&mut gfx);
                 }
-            },
+            }
             Event::WindowEvent {
                 event: WindowEvent::Focused(false),
                 ..
             } => {
                 minimized = is_minimized(gfx.get_window());
-            },
+            }
             Event::RedrawEventsCleared => {
                 app.run(&gfx);
                 if !minimized {
