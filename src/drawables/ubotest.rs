@@ -19,34 +19,13 @@ impl UboTestDrawable
         let uniform =
             bindable::UniformBuffer::new(gfx, 0, Ubo{ brightness: 1.0 }, ShaderStages::FRAGMENT);
 
-        let mut entry = GenericDrawable::new(&gfx, 0, || {
-
-            vec![ uniform.clone() ]
-        }, || {
-            #[derive(BufferContents, Vertex)]
-            #[repr(C)]
-            struct Vertex {
-                #[format(R32G32_SFLOAT)]
-                pub pos: [f32; 2],
-                #[format(R32G32B32_SFLOAT)]
-                pub col: [f32; 3],
-            }
-            let vertices: Vec<Vertex> = vec![
-                Vertex{pos: [-0.5,  0.5], col: [1.0, 1.0, 0.0]},
-                Vertex{pos: [ 0.0, -0.5], col: [0.0, 1.0, 1.0]},
-                Vertex{pos: [ 0.5,  0.5], col: [1.0, 0.0, 1.0]}
-            ];
-            let indices: Vec<u32> = vec![
-                0, 1, 2
-            ];
-
-            vec![
-                bindable::VertexShader::from_module(vert_first::load(gfx.get_device()).unwrap()),
-                bindable::FragmentShader::from_module(frag_uniform_test::load(gfx.get_device()).unwrap()),
-                bindable::IndexBuffer::new(&gfx, indices),
-                bindable::VertexBuffer::new(&gfx, vertices),
-            ]
-        });
+        let mut entry = GenericDrawable::new(
+            &gfx,
+            || vec![
+                uniform.clone()
+            ],
+            shared_bindables
+        );
 
         if create_registered {
             gfx.register_drawable(&mut entry);
@@ -57,4 +36,31 @@ impl UboTestDrawable
             uniform: uniform
         }
     }
+}
+
+fn shared_bindables(gfx: &Graphics) -> Vec<Arc<dyn bindable::Bindable>>
+{
+    #[derive(BufferContents, Vertex)]
+    #[repr(C)]
+    struct Vertex {
+        #[format(R32G32_SFLOAT)]
+        pub pos: [f32; 2],
+        #[format(R32G32B32_SFLOAT)]
+        pub col: [f32; 3],
+    }
+    let vertices: Vec<Vertex> = vec![
+        Vertex{pos: [-0.5,  0.5], col: [1.0, 1.0, 0.0]},
+        Vertex{pos: [ 0.0, -0.5], col: [0.0, 1.0, 1.0]},
+        Vertex{pos: [ 0.5,  0.5], col: [1.0, 0.0, 1.0]}
+    ];
+    let indices: Vec<u32> = vec![
+        0, 1, 2
+    ];
+
+    vec![
+        bindable::VertexShader::from_module(vert_first::load(gfx.get_device()).unwrap()),
+        bindable::FragmentShader::from_module(frag_uniform_test::load(gfx.get_device()).unwrap()),
+        bindable::IndexBuffer::new(&gfx, indices),
+        bindable::VertexBuffer::new(&gfx, vertices),
+    ]
 }

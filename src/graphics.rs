@@ -4,6 +4,7 @@ pub mod pipeline;
 pub mod shaders;
 pub mod utils;
 
+use std::any::TypeId;
 use std::cmp::min;
 use std::collections::HashMap;
 use std::sync::{Arc, OnceLock, Weak};
@@ -14,6 +15,7 @@ use vulkano::format::{ClearValue, FormatFeatures};
 use vulkano::image::{AttachmentImage, ImageTiling};
 use vulkano::render_pass::SubpassDependency;
 
+use self::bindable::Bindable;
 use self::drawable::{Drawable, DrawableEntry, DrawableSharedPart, GenericDrawable};
 use vulkano::sync::{AccessFlags, PipelineStages};
 use vulkano::{
@@ -123,7 +125,7 @@ pub struct Graphics {
     //depth_buffer: Vec<Arc<ImageView<AttachmentImage>>>,
     framebuffers: Vec<Arc<Framebuffer>>,
 
-    shared_data_map: HashMap<u32, Weak<DrawableSharedPart>>, // THIS SHOULD BE MOVED
+    shared_data_map: HashMap<fn(&Graphics) -> Vec<Arc<dyn Bindable>>, Weak<DrawableSharedPart>>, // THIS SHOULD BE MOVED
     registered_drawables: Vec<Weak<GenericDrawable>>,        // THIS SHOULD BE MOVED
 
     utils: OnceLock<utils::Utils>,
@@ -222,7 +224,7 @@ impl Graphics {
     pub fn get_allocator(&self) -> &StandardMemoryAllocator {
         &self.allocator
     }
-    pub fn get_shared_data_map(&self) -> &HashMap<u32, Weak<DrawableSharedPart>> {
+    pub fn get_shared_data_map(&self) -> &HashMap<fn(&Graphics) -> Vec<Arc<dyn Bindable>>, Weak<DrawableSharedPart>> {
         &self.shared_data_map
     }
     pub fn get_swapchain_format(&self) -> Format {

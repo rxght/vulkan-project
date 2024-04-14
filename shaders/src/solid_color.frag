@@ -2,8 +2,7 @@
 
 layout(location = 0) out vec4 out_color;
 
-layout( push_constant ) uniform Color {
-    mat4 padding;
+layout( binding = 0 ) uniform Color {
     vec3 color;
 };
 

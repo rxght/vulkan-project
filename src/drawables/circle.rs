@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use cgmath::Vector2;
+use cgmath::{SquareMatrix, Vector2};
 use vulkano::{
     buffer::BufferContents, pipeline::graphics::vertex_input::Vertex, shader::ShaderStages,
 };
@@ -12,23 +12,21 @@ use crate::graphics::{
     Graphics,
 };
 
-pub struct Square {
+pub struct Circle {
+    pub postition: Vector2<f32>,
+    pub radius: f32,
+
     entry: DrawableEntry,
-    pub transform: Arc<PushConstant<vert_cartesian_2d::Data>>,
+    transform: Arc<PushConstant<vert_cartesian_2d::Data>>,
 }
 
-impl Square {
+impl Circle {
     pub fn new(gfx: &mut Graphics, pos: Vector2<f32>, radius: f32) -> Self {
         let data = PushConstant::new(
             gfx,
             0,
             vert_cartesian_2d::Data {
-                transform: (cgmath::Matrix4::from_translation(cgmath::Vector3 {
-                    x: pos.x,
-                    y: pos.y,
-                    z: 0.0,
-                }) * cgmath::Matrix4::from_scale(radius))
-                .into(),
+                transform: cgmath::Matrix4::identity().into(),
             },
             ShaderStages::VERTEX,
         );
@@ -38,12 +36,14 @@ impl Square {
             || vec![
                 data.clone()
             ],
-            shared_bindables,
+            shared_bindables
         );
 
         gfx.register_drawable(&mut entry);
 
         Self {
+            postition: pos,
+            radius: radius,
             entry: entry,
             transform: data,
         }

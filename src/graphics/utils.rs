@@ -10,7 +10,7 @@ use super::Graphics;
 #[derive(Clone, Copy, Zeroable, bytemuck::Pod)]
 #[repr(C)]
 pub struct MatrixUbo {
-    matrix: [[f32; 4]; 4],
+    pub matrix: [[f32; 4]; 4],
 }
 
 pub struct Utils {

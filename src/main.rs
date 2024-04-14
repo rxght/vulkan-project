@@ -56,7 +56,7 @@ fn main() {
                 minimized = is_minimized(gfx.get_window());
             }
             Event::RedrawEventsCleared => {
-                app.run(&gfx);
+                app.run(&mut gfx);
                 if !minimized {
                     gfx.draw_frame()
                 }

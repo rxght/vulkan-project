@@ -3,6 +3,7 @@ use vulkano::pipeline::{GraphicsPipeline, PipelineLayout};
 
 use super::bindable::Bindable;
 use super::pipeline::PipelineBuilder;
+use super::Graphics;
 
 pub trait Drawable {
     fn get_bindables(&self) -> &Vec<Arc<dyn Bindable>>;
@@ -39,16 +40,15 @@ impl DrawableEntry {
 }
 
 impl GenericDrawable {
-    pub fn new<Fn1, Fn2>(
+    pub fn new<Fn1>(
         gfx: &super::Graphics,
-        shared_id: u32,
         init_bindables: Fn1,
-        init_shared_bindables: Fn2,
+        init_shared_bindables: fn(&Graphics) -> Vec<Arc<dyn Bindable>>,
     ) -> DrawableEntry
     where
-        Fn1: FnOnce() -> Vec<Arc<dyn Bindable>>,
-        Fn2: FnOnce() -> Vec<Arc<dyn Bindable>>,
+        Fn1: FnOnce() -> Vec<Arc<dyn Bindable>>
     {
+        let shared_id = init_shared_bindables;
         let shared_data = match gfx.get_shared_data_map().get(&shared_id) {
             Some(weak) => match weak.upgrade() {
                 Some(arc) => Some(arc),
@@ -68,7 +68,7 @@ impl GenericDrawable {
             None => {
                 let mut index_count = 0;
                 let bindables = init_bindables();
-                let shared_bindables = init_shared_bindables();
+                let shared_bindables = init_shared_bindables(gfx);
 
                 let mut pipeline_builder = PipelineBuilder::new(gfx);
 
