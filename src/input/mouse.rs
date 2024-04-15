@@ -13,8 +13,8 @@ use winit::{
 use super::{ButtonState, BypassHasher};
 
 pub struct Mouse {
-    pub cursor_position: Cell<Vector2<f64>>,
-    pub mouse_movement: Cell<Vector2<f64>>,
+    pub cursor_position: Cell<Vector2<f32>>,
+    pub mouse_movement: Cell<Vector2<f32>>,
     button_map: RwLock<HashMap<u32, ButtonState, BypassHasher>>,
 }
 
@@ -83,7 +83,7 @@ impl Mouse {
                 }
                 if let DeviceEvent::MouseMotion { delta } = event {
                     self.mouse_movement
-                        .set(self.mouse_movement.get() + Vector2::from(*delta));
+                        .set(self.mouse_movement.get() + Vector2::new(delta.0 as f32, delta.1 as f32));
                     return true;
                 }
                 return false;
@@ -93,8 +93,8 @@ impl Mouse {
                     let window_size = window.inner_size();
 
                     self.cursor_position.set(Vector2 {
-                        x: -((window_size.width / 2) as f64) + position.x,
-                        y: (window_size.height / 2) as f64 - position.y,
+                        x: -((window_size.width / 2) as f32) + position.x as f32,
+                        y: (window_size.height / 2) as f32 - position.y as f32,
                     });
                     return true;
                 }
