@@ -96,7 +96,9 @@ where
             ))
             .unwrap();
 
-        let fence = builder.build().unwrap()
+        let fence = builder
+            .build()
+            .unwrap()
             .execute(gfx.graphics_queue())
             .unwrap()
             .then_signal_fence_and_flush()
@@ -109,12 +111,11 @@ where
             staging_buffer: staging_buffer,
         })
     }
-    pub fn write_vertices(&self, gfx: &Graphics, writing_function: impl FnOnce(IterMut<'_, T>))
-    {
+    pub fn write_vertices(&self, gfx: &Graphics, writing_function: impl FnOnce(IterMut<'_, T>)) {
         match self.staging_buffer.write() {
             Ok(mut write_guard) => {
                 writing_function(write_guard.iter_mut());
-            },
+            }
             Err(e) => {
                 println!("Error: {e}");
                 return;

@@ -31,7 +31,9 @@
                     "test",
                     "--no-run",
                     "--bin=batako",
-                    "--package=batako"
+                    "--package=batako",
+                    "--",
+                    "--show-output",
                 ],
                 "filter": {
                     "name": "batako",

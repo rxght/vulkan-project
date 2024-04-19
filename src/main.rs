@@ -12,6 +12,7 @@ use winit::{
 
 #[path = "app.rs"]
 mod app;
+mod font;
 mod graphics;
 mod input;
 

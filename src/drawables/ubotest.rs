@@ -1,45 +1,42 @@
 use std::sync::Arc;
 
-use vulkano::{buffer::BufferContents, pipeline::graphics::vertex_input::Vertex, shader::ShaderStages};
+use vulkano::{
+    buffer::BufferContents, pipeline::graphics::vertex_input::Vertex, shader::ShaderStages,
+};
 
-use crate::graphics::{drawable::{GenericDrawable, DrawableEntry}, Graphics, bindable::{self, UniformBuffer}, shaders::{frag_uniform_test, vert_first}};
+use crate::graphics::{
+    bindable::{self, UniformBuffer},
+    drawable::{DrawableEntry, GenericDrawable},
+    shaders::{frag_uniform_test, vert_first},
+    Graphics,
+};
 
 pub use frag_uniform_test::ubo as Ubo;
 
-pub struct UboTestDrawable
-{
+pub struct UboTestDrawable {
     entry: DrawableEntry,
-    pub uniform: Arc<UniformBuffer<Ubo>>
+    pub uniform: Arc<UniformBuffer<Ubo>>,
 }
 
-impl UboTestDrawable
-{
-    pub fn new(gfx: &mut Graphics, create_registered: bool) -> Self
-    {
+impl UboTestDrawable {
+    pub fn new(gfx: &mut Graphics, create_registered: bool) -> Self {
         let uniform =
-            bindable::UniformBuffer::new(gfx, 0, Ubo{ brightness: 1.0 }, ShaderStages::FRAGMENT);
+            bindable::UniformBuffer::new(gfx, 0, Ubo { brightness: 1.0 }, ShaderStages::FRAGMENT);
 
-        let mut entry = GenericDrawable::new(
-            &gfx,
-            || vec![
-                uniform.clone()
-            ],
-            shared_bindables
-        );
+        let mut entry = GenericDrawable::new(&gfx, || vec![uniform.clone()], shared_bindables);
 
         if create_registered {
             gfx.register_drawable(&mut entry);
         }
-        
+
         Self {
             entry: entry,
-            uniform: uniform
+            uniform: uniform,
         }
     }
 }
 
-fn shared_bindables(gfx: &Graphics) -> Vec<Arc<dyn bindable::Bindable>>
-{
+fn shared_bindables(gfx: &Graphics) -> Vec<Arc<dyn bindable::Bindable>> {
     #[derive(BufferContents, Vertex)]
     #[repr(C)]
     struct Vertex {
@@ -49,13 +46,20 @@ fn shared_bindables(gfx: &Graphics) -> Vec<Arc<dyn bindable::Bindable>>
         pub col: [f32; 3],
     }
     let vertices: Vec<Vertex> = vec![
-        Vertex{pos: [-0.5,  0.5], col: [1.0, 1.0, 0.0]},
-        Vertex{pos: [ 0.0, -0.5], col: [0.0, 1.0, 1.0]},
-        Vertex{pos: [ 0.5,  0.5], col: [1.0, 0.0, 1.0]}
+        Vertex {
+            pos: [-0.5, 0.5],
+            col: [1.0, 1.0, 0.0],
+        },
+        Vertex {
+            pos: [0.0, -0.5],
+            col: [0.0, 1.0, 1.0],
+        },
+        Vertex {
+            pos: [0.5, 0.5],
+            col: [1.0, 0.0, 1.0],
+        },
     ];
-    let indices: Vec<u32> = vec![
-        0, 1, 2
-    ];
+    let indices: Vec<u32> = vec![0, 1, 2];
 
     vec![
         bindable::VertexShader::from_module(vert_first::load(gfx.get_device()).unwrap()),

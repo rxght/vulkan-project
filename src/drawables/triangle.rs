@@ -2,15 +2,18 @@ use std::sync::Arc;
 
 use vulkano::{buffer::BufferContents, pipeline::graphics::vertex_input::Vertex};
 
-use crate::graphics::{drawable::{GenericDrawable, DrawableEntry}, Graphics, bindable, shaders::{vert_first, frag_first}};
+use crate::graphics::{
+    bindable,
+    drawable::{DrawableEntry, GenericDrawable},
+    shaders::{frag_first, vert_first},
+    Graphics,
+};
 
-
-pub fn new(gfx: &mut Graphics, create_registered: bool) -> DrawableEntry
-{
+pub fn new(gfx: &mut Graphics, create_registered: bool) -> DrawableEntry {
     let mut entry = GenericDrawable::new(
         &gfx,
         || vec![], // no per instance bindables necessary
-        shared_bindables
+        shared_bindables,
     );
 
     if create_registered {
@@ -20,8 +23,7 @@ pub fn new(gfx: &mut Graphics, create_registered: bool) -> DrawableEntry
     entry
 }
 
-fn shared_bindables(gfx: &Graphics) -> Vec<Arc<dyn bindable::Bindable>>
-{
+fn shared_bindables(gfx: &Graphics) -> Vec<Arc<dyn bindable::Bindable>> {
     #[derive(BufferContents, Vertex)]
     #[repr(C)]
     struct Vertex {
@@ -31,13 +33,20 @@ fn shared_bindables(gfx: &Graphics) -> Vec<Arc<dyn bindable::Bindable>>
         pub col: [f32; 3],
     }
     let vertices: Vec<Vertex> = vec![
-        Vertex{pos: [-0.5,  0.5], col: [1.0, 1.0, 0.0]},
-        Vertex{pos: [ 0.0, -0.5], col: [0.0, 1.0, 1.0]},
-        Vertex{pos: [ 0.5,  0.5], col: [1.0, 0.0, 1.0]}
+        Vertex {
+            pos: [-0.5, 0.5],
+            col: [1.0, 1.0, 0.0],
+        },
+        Vertex {
+            pos: [0.0, -0.5],
+            col: [0.0, 1.0, 1.0],
+        },
+        Vertex {
+            pos: [0.5, 0.5],
+            col: [1.0, 0.0, 1.0],
+        },
     ];
-    let indices: Vec<u32> = vec![
-        0, 1, 2
-    ];
+    let indices: Vec<u32> = vec![0, 1, 2];
 
     vec![
         bindable::VertexShader::from_module(vert_first::load(gfx.get_device()).unwrap()),

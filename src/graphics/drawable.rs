@@ -46,7 +46,7 @@ impl GenericDrawable {
         init_shared_bindables: fn(&Graphics) -> Vec<Arc<dyn Bindable>>,
     ) -> DrawableEntry
     where
-        Fn1: FnOnce() -> Vec<Arc<dyn Bindable>>
+        Fn1: FnOnce() -> Vec<Arc<dyn Bindable>>,
     {
         let shared_id = init_shared_bindables;
         let shared_data = match gfx.get_shared_data_map().get(&shared_id) {

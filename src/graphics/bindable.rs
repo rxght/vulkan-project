@@ -13,19 +13,19 @@ use super::{pipeline::PipelineBuilder, Graphics};
 
 mod buffer;
 mod god_bindable;
+mod mutable_buffer;
 mod push_constant;
 mod shader;
 mod texture;
 mod uniform;
-mod mutable_buffer;
 
 pub use buffer::*;
 pub use god_bindable::*;
+pub use mutable_buffer::*;
 pub use push_constant::*;
 pub use shader::*;
 pub use texture::*;
 pub use uniform::*;
-pub use mutable_buffer::*;
 
 pub trait Bindable {
     fn bind_to_pipeline(&self, builder: &mut PipelineBuilder, index_count: &mut u32);

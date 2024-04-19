@@ -82,8 +82,9 @@ impl Mouse {
                     }
                 }
                 if let DeviceEvent::MouseMotion { delta } = event {
-                    self.mouse_movement
-                        .set(self.mouse_movement.get() + Vector2::new(delta.0 as f32, delta.1 as f32));
+                    self.mouse_movement.set(
+                        self.mouse_movement.get() + Vector2::new(delta.0 as f32, delta.1 as f32),
+                    );
                     return true;
                 }
                 return false;

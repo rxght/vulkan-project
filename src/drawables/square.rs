@@ -8,7 +8,7 @@ use vulkano::{
 use crate::graphics::{
     bindable::{self, PushConstant},
     drawable::{DrawableEntry, GenericDrawable},
-    shaders::{vert_cartesian_2d, frag_solid_white},
+    shaders::{frag_solid_white, vert_cartesian_2d},
     Graphics,
 };
 
@@ -33,13 +33,7 @@ impl Square {
             ShaderStages::VERTEX,
         );
 
-        let mut entry = GenericDrawable::new(
-            gfx,
-            || vec![
-                data.clone()
-            ],
-            shared_bindables,
-        );
+        let mut entry = GenericDrawable::new(gfx, || vec![data.clone()], shared_bindables);
 
         gfx.register_drawable(&mut entry);
 
@@ -50,8 +44,7 @@ impl Square {
     }
 }
 
-fn shared_bindables(gfx: &Graphics) -> Vec<Arc<dyn bindable::Bindable>>
-{
+fn shared_bindables(gfx: &Graphics) -> Vec<Arc<dyn bindable::Bindable>> {
     #[derive(BufferContents, Vertex)]
     #[repr(C)]
     struct Vertex {
@@ -71,12 +64,8 @@ fn shared_bindables(gfx: &Graphics) -> Vec<Arc<dyn bindable::Bindable>>
     vec![
         bindable::VertexBuffer::new(gfx, vertices),
         bindable::IndexBuffer::new(gfx, indices),
-        bindable::VertexShader::from_module(
-            vert_cartesian_2d::load(gfx.get_device()).unwrap(),
-        ),
-        bindable::FragmentShader::from_module(
-            frag_solid_white::load(gfx.get_device()).unwrap(),
-        ),
+        bindable::VertexShader::from_module(vert_cartesian_2d::load(gfx.get_device()).unwrap()),
+        bindable::FragmentShader::from_module(frag_solid_white::load(gfx.get_device()).unwrap()),
         gfx.get_utils().cartesian_to_normalized.clone(),
     ]
 }

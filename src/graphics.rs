@@ -125,7 +125,7 @@ pub struct Graphics {
     framebuffers: Vec<Arc<Framebuffer>>,
 
     shared_data_map: HashMap<fn(&Graphics) -> Vec<Arc<dyn Bindable>>, Weak<DrawableSharedPart>>, // THIS SHOULD BE MOVED
-    registered_drawables: Vec<Weak<GenericDrawable>>,        // THIS SHOULD BE MOVED
+    registered_drawables: Vec<Weak<GenericDrawable>>, // THIS SHOULD BE MOVED
 
     utils: OnceLock<utils::Utils>,
 
@@ -223,7 +223,9 @@ impl Graphics {
     pub fn get_allocator(&self) -> &StandardMemoryAllocator {
         &self.allocator
     }
-    pub fn get_shared_data_map(&self) -> &HashMap<fn(&Graphics) -> Vec<Arc<dyn Bindable>>, Weak<DrawableSharedPart>> {
+    pub fn get_shared_data_map(
+        &self,
+    ) -> &HashMap<fn(&Graphics) -> Vec<Arc<dyn Bindable>>, Weak<DrawableSharedPart>> {
         &self.shared_data_map
     }
     pub fn get_swapchain_format(&self) -> Format {
@@ -459,7 +461,7 @@ fn create_debug_messenger(instance: Arc<Instance>) -> DebugUtilsMessenger {
 fn create_window(instance: Arc<Instance>) -> (EventLoop<()>, Arc<Surface>) {
     let event_loop = EventLoop::new();
     let surface = WindowBuilder::new()
-        .with_inner_size(LogicalSize::new(600, 400))
+        .with_inner_size(LogicalSize::new(800, 300))
         .with_resizable(true)
         .with_title("Batako")
         .build_vk_surface(&event_loop, instance.clone())
